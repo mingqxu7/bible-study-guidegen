@@ -1,0 +1,189 @@
+// Commentary mapping for different theological denominations to StudyLight.org commentaries
+export const commentaryMapping = {
+  calvinism: [
+    { name: "Calvin's Commentary", code: "cal", author: "John Calvin" },
+    { name: "Matthew Henry", code: "mhm", author: "Matthew Henry" },
+    { name: "John Gill", code: "geb", author: "John Gill" },
+    { name: "Barnes' Notes", code: "bnb", author: "Albert Barnes" },
+    { name: "Jamieson-Fausset-Brown", code: "jfb", author: "Jamieson, Fausset, Brown" }
+  ],
+  arminianism: [
+    { name: "Wesley's Notes", code: "wen", author: "John Wesley" },
+    { name: "Clarke's Commentary", code: "acc", author: "Adam Clarke" },
+    { name: "Benson's Commentary", code: "rbc", author: "Joseph Benson" },
+    { name: "Whedon's Commentary", code: "whe", author: "Daniel Whedon" }
+  ],
+  dispensationalism: [
+    { name: "Scofield Reference Notes", code: "srn", author: "C.I. Scofield" },
+    { name: "Darby's Synopsis", code: "dsn", author: "John Darby" },
+    { name: "Ironside's Notes", code: "isn", author: "H.A. Ironside" },
+    { name: "McGee's Commentary", code: "ttb", author: "J. Vernon McGee" }
+  ],
+  lutheranism: [
+    { name: "Kretzmann's Commentary", code: "kpc", author: "Paul Kretzmann" },
+    { name: "Bengel's Gnomon", code: "bng", author: "Johann Bengel" },
+    { name: "Luther's Commentary", code: "lut", author: "Martin Luther" }
+  ],
+  catholicism: [
+    { name: "Haydock's Commentary", code: "hcc", author: "George Haydock" },
+    { name: "Lapide's Commentary", code: "lap", author: "Cornelius Lapide" },
+    { name: "Orchard's Commentary", code: "orc", author: "Bernard Orchard" }
+  ]
+};
+
+// StudyLight.org URL patterns for different commentary types
+export const getCommentaryUrl = (commentaryCode, book, chapter) => {
+  // StudyLight.org URL format: https://www.studylight.org/commentaries/eng/{code}/{book-name-chapter}.html
+  const bookName = getStudyLightBookName(book);
+  return `https://www.studylight.org/commentaries/eng/${commentaryCode}/${bookName}-${chapter}.html`;
+};
+
+// Convert book codes to StudyLight.org book names
+export const getStudyLightBookName = (bookCode) => {
+  const bookNames = {
+    // Old Testament
+    'gen': 'genesis',
+    'exo': 'exodus',
+    'lev': 'leviticus',
+    'num': 'numbers',
+    'deu': 'deuteronomy',
+    'jos': 'joshua',
+    'jdg': 'judges',
+    'rut': 'ruth',
+    '1sa': '1-samuel',
+    '2sa': '2-samuel',
+    '1ki': '1-kings',
+    '2ki': '2-kings',
+    '1ch': '1-chronicles',
+    '2ch': '2-chronicles',
+    'ezr': 'ezra',
+    'neh': 'nehemiah',
+    'est': 'esther',
+    'job': 'job',
+    'psa': 'psalms',
+    'pro': 'proverbs',
+    'ecc': 'ecclesiastes',
+    'sng': 'song-of-solomon',
+    'isa': 'isaiah',
+    'jer': 'jeremiah',
+    'lam': 'lamentations',
+    'eze': 'ezekiel',
+    'dan': 'daniel',
+    'hos': 'hosea',
+    'joe': 'joel',
+    'amo': 'amos',
+    'oba': 'obadiah',
+    'jon': 'jonah',
+    'mic': 'micah',
+    'nah': 'nahum',
+    'hab': 'habakkuk',
+    'zep': 'zephaniah',
+    'hag': 'haggai',
+    'zec': 'zechariah',
+    'mal': 'malachi',
+    
+    // New Testament
+    'mat': 'matthew',
+    'mar': 'mark',
+    'luk': 'luke',
+    'joh': 'john',
+    'act': 'acts',
+    'rom': 'romans',
+    '1co': '1-corinthians',
+    '2co': '2-corinthians',
+    'gal': 'galatians',
+    'eph': 'ephesians',
+    'phi': 'philippians',
+    'col': 'colossians',
+    '1th': '1-thessalonians',
+    '2th': '2-thessalonians',
+    '1ti': '1-timothy',
+    '2ti': '2-timothy',
+    'tit': 'titus',
+    'phm': 'philemon',
+    'heb': 'hebrews',
+    'jam': 'james',
+    '1pe': '1-peter',
+    '2pe': '2-peter',
+    '1jo': '1-john',
+    '2jo': '2-john',
+    '3jo': '3-john',
+    'jud': 'jude',
+    'rev': 'revelation'
+  };
+  
+  return bookNames[bookCode] || bookCode;
+};
+
+// Bible book name to StudyLight code mapping
+export const bookMapping = {
+  // Old Testament
+  'genesis': 'gen', 'gen': 'gen',
+  'exodus': 'exo', 'exo': 'exo',
+  'leviticus': 'lev', 'lev': 'lev',
+  'numbers': 'num', 'num': 'num',
+  'deuteronomy': 'deu', 'deut': 'deu', 'deu': 'deu',
+  'joshua': 'jos', 'josh': 'jos', 'jos': 'jos',
+  'judges': 'jdg', 'judg': 'jdg', 'jdg': 'jdg',
+  'ruth': 'rut', 'rut': 'rut',
+  '1 samuel': '1sa', '1 sam': '1sa', '1sa': '1sa', '1samuel': '1sa',
+  '2 samuel': '2sa', '2 sam': '2sa', '2sa': '2sa', '2samuel': '2sa',
+  '1 kings': '1ki', '1 king': '1ki', '1ki': '1ki', '1 kg': '1ki', '1kings': '1ki',
+  '2 kings': '2ki', '2 king': '2ki', '2ki': '2ki', '2 kg': '2ki', '2kings': '2ki',
+  '1 chronicles': '1ch', '1 chron': '1ch', '1ch': '1ch', '1chr': '1ch', '1chronicles': '1ch',
+  '2 chronicles': '2ch', '2 chron': '2ch', '2ch': '2ch', '2chr': '2ch', '2chronicles': '2ch',
+  'ezra': 'ezr', 'ezr': 'ezr',
+  'nehemiah': 'neh', 'neh': 'neh',
+  'esther': 'est', 'est': 'est',
+  'job': 'job',
+  'psalm': 'psa', 'psalms': 'psa', 'psa': 'psa', 'ps': 'psa',
+  'proverbs': 'pro', 'prov': 'pro', 'pro': 'pro',
+  'ecclesiastes': 'ecc', 'eccl': 'ecc', 'ecc': 'ecc',
+  'song of solomon': 'sng', 'song': 'sng', 'sng': 'sng', 'sos': 'sng',
+  'isaiah': 'isa', 'isa': 'isa',
+  'jeremiah': 'jer', 'jer': 'jer',
+  'lamentations': 'lam', 'lam': 'lam',
+  'ezekiel': 'eze', 'ezek': 'eze', 'eze': 'eze',
+  'daniel': 'dan', 'dan': 'dan',
+  'hosea': 'hos', 'hos': 'hos',
+  'joel': 'joe', 'joe': 'joe',
+  'amos': 'amo', 'amo': 'amo',
+  'obadiah': 'oba', 'obad': 'oba', 'oba': 'oba',
+  'jonah': 'jon', 'jon': 'jon',
+  'micah': 'mic', 'mic': 'mic',
+  'nahum': 'nah', 'nah': 'nah',
+  'habakkuk': 'hab', 'hab': 'hab',
+  'zephaniah': 'zep', 'zeph': 'zep', 'zep': 'zep',
+  'haggai': 'hag', 'hag': 'hag',
+  'zechariah': 'zec', 'zech': 'zec', 'zec': 'zec',
+  'malachi': 'mal', 'mal': 'mal',
+  
+  // New Testament
+  'matthew': 'mat', 'matt': 'mat', 'mat': 'mat', 'mt': 'mat',
+  'mark': 'mar', 'mar': 'mar', 'mk': 'mar',
+  'luke': 'luk', 'luk': 'luk', 'lk': 'luk',
+  'john': 'joh', 'joh': 'joh', 'jn': 'joh',
+  'acts': 'act', 'act': 'act',
+  'romans': 'rom', 'rom': 'rom',
+  '1 corinthians': '1co', '1 cor': '1co', '1cor': '1co', '1co': '1co', '1 corinth': '1co',
+  '2 corinthians': '2co', '2 cor': '2co', '2cor': '2co', '2co': '2co', '2 corinth': '2co',
+  'galatians': 'gal', 'gal': 'gal',
+  'ephesians': 'eph', 'eph': 'eph',
+  'philippians': 'phi', 'phil': 'phi', 'phi': 'phi', 'php': 'phi',
+  'colossians': 'col', 'col': 'col',
+  '1 thessalonians': '1th', '1 thess': '1th', '1th': '1th', '1thess': '1th', '1 thes': '1th',
+  '2 thessalonians': '2th', '2 thess': '2th', '2th': '2th', '2thess': '2th', '2 thes': '2th',
+  '1 timothy': '1ti', '1 tim': '1ti', '1ti': '1ti', '1tim': '1ti',
+  '2 timothy': '2ti', '2 tim': '2ti', '2ti': '2ti', '2tim': '2ti',
+  'titus': 'tit', 'tit': 'tit',
+  'philemon': 'phm', 'philem': 'phm', 'phm': 'phm', 'phlm': 'phm',
+  'hebrews': 'heb', 'heb': 'heb',
+  'james': 'jam', 'jas': 'jam', 'jam': 'jam',
+  '1 peter': '1pe', '1 pet': '1pe', '1pe': '1pe', '1pet': '1pe', '1 pt': '1pe',
+  '2 peter': '2pe', '2 pet': '2pe', '2pe': '2pe', '2pet': '2pe', '2 pt': '2pe',
+  '1 john': '1jo', '1 jn': '1jo', '1jo': '1jo', '1john': '1jo', '1jn': '1jo',
+  '2 john': '2jo', '2 jn': '2jo', '2jo': '2jo', '2john': '2jo', '2jn': '2jo',
+  '3 john': '3jo', '3 jn': '3jo', '3jo': '3jo', '3john': '3jo', '3jn': '3jo',
+  'jude': 'jud', 'jud': 'jud',
+  'revelation': 'rev', 'rev': 'rev', 'revelations': 'rev'
+};

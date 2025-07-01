@@ -1,0 +1,27 @@
+{
+  "name": "bible-study-guide-generator-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Bible Study Guide Generator",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "@anthropic-ai/sdk": "^0.24.3",
+    "cheerio": "^1.0.0-rc.12",
+    "axios": "^1.6.0",
+    "node-fetch": "^3.3.2",
+    "openai": "^4.20.1",
+    "faiss-node": "^0.5.1",
+    "natural": "^6.12.0",
+    "stopword": "^2.0.8"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
