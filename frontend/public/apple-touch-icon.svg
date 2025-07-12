@@ -1,0 +1,44 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with rounded corners for iOS -->
+  <rect width="180" height="180" rx="40" fill="#4F46E5"/>
+  
+  <!-- Bible Book -->
+  <rect x="50" y="55" width="80" height="96" rx="4" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1"/>
+  
+  <!-- Book Spine -->
+  <rect x="50" y="55" width="8" height="96" rx="4" fill="#1E293B"/>
+  
+  <!-- Pages -->
+  <rect x="64" y="65" width="60" height="76" rx="2" fill="#FEFEFE"/>
+  
+  <!-- Cross Symbol -->
+  <g transform="translate(90, 85)">
+    <!-- Vertical bar -->
+    <rect x="-2" y="-12" width="4" height="24" rx="2" fill="#DC2626"/>
+    <!-- Horizontal bar -->
+    <rect x="-8" y="-2" width="16" height="4" rx="2" fill="#DC2626"/>
+  </g>
+  
+  <!-- Text Lines -->
+  <rect x="70" y="110" width="40" height="2" rx="1" fill="#94A3B8"/>
+  <rect x="70" y="118" width="32" height="2" rx="1" fill="#94A3B8"/>
+  <rect x="70" y="126" width="44" height="2" rx="1" fill="#94A3B8"/>
+  <rect x="70" y="134" width="28" height="2" rx="1" fill="#94A3B8"/>
+  
+  <!-- Study Elements -->
+  <circle cx="66" cy="111" r="1.5" fill="#6366F1"/>
+  <circle cx="66" cy="119" r="1.5" fill="#6366F1"/>
+  <circle cx="66" cy="127" r="1.5" fill="#6366F1"/>
+  <circle cx="66" cy="135" r="1.5" fill="#6366F1"/>
+  
+  <!-- Bookmark -->
+  <rect x="118" y="55" width="6" width="20" fill="#F59E0B"/>
+  <polygon points="118,75 121,70 124,75" fill="#F59E0B"/>
+  
+  <!-- Light rays -->
+  <g opacity="0.4">
+    <rect x="89" y="35" width="2" height="8" rx="1" fill="#FCD34D"/>
+    <rect x="100" y="40" width="2" height="6" rx="1" fill="#FCD34D" transform="rotate(20 101 43)"/>
+    <rect x="78" y="40" width="2" height="6" rx="1" fill="#FCD34D" transform="rotate(-20 79 43)"/>
+  </g>
+</svg>
