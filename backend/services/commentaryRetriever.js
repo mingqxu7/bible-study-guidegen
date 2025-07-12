@@ -5,7 +5,7 @@ import { commentaryMapping, getCommentaryUrl, bookMapping } from './commentaryMa
 export class CommentaryRetriever {
   constructor() {
     this.cache = new Map();
-    this.requestDelay = 1000; // 1 second delay between requests to be respectful
+    this.requestDelay = 500; // Reduced delay for serverless (500ms)
   }
 
   // Helper function to get error messages in the specified language
@@ -138,7 +138,7 @@ export class CommentaryRetriever {
       console.log(`Fetching commentary from: ${url}`);
       
       const response = await axios.get(url, {
-        timeout: 10000,
+        timeout: 5000, // Reduced timeout for serverless
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }

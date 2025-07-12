@@ -2,9 +2,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import { CommentaryRetriever } from '../backend/services/commentaryRetriever.js';
 import { getCommentaryUrl } from '../backend/services/commentaryMapping.js';
 
-const MAX_OUTPUT_TOKENS = parseInt(process.env.MAX_OUTPUT_TOKENS) || 16000;
-const MAX_COMMENTARIES = parseInt(process.env.MAX_COMMENTARIES) || 3;
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
+const MAX_OUTPUT_TOKENS = parseInt(process.env.MAX_OUTPUT_TOKENS) || 8192;
+const MAX_COMMENTARIES = parseInt(process.env.MAX_COMMENTARIES) || 2; // Reduced for faster processing
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -45,17 +45,25 @@ export default async function handler(req, res) {
 
     console.log(`Generating study guide for ${verseInput} with ${selectedStance.name} perspective`);
 
-    // Step 1: Retrieve commentaries from StudyLight.org
+    // Step 1: Retrieve commentaries from StudyLight.org with timeout
     let commentaryData;
     let usableCommentaries = [];
     try {
       console.log('Retrieving commentaries...');
-      commentaryData = await commentaryRetriever.getCommentariesForDenomination(
+      
+      // Add timeout wrapper for commentary retrieval (15 seconds max)
+      const commentaryPromise = commentaryRetriever.getCommentariesForDenomination(
         selectedTheology, 
         verseInput,
         MAX_COMMENTARIES,
         language
       );
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Commentary retrieval timeout')), 15000)
+      );
+      
+      commentaryData = await Promise.race([commentaryPromise, timeoutPromise]);
       
       const successfulCount = commentaryData.commentaries.length;
       const failedCount = commentaryData.failedCommentaries?.length || 0;
@@ -92,14 +100,15 @@ export default async function handler(req, res) {
         });
       }
       
-      // For other errors, continue with default commentary
+      // For timeout or other errors, continue with minimal commentary
+      console.log('Using fallback commentary due to timeout or retrieval error');
       commentaryData = {
         denomination: selectedTheology,
         passage: verseInput,
         commentaries: [{
-          name: 'Default Commentary',
+          name: 'General Biblical Knowledge',
           author: 'System',
-          content: 'Commentary retrieval failed. Using general theological knowledge.',
+          content: `Commentary retrieval ${commentaryError.message.includes('timeout') ? 'timed out' : 'failed'}. Using general theological knowledge from ${selectedStance.name} perspective.`,
           source: 'System'
         }],
         failedCommentaries: []
