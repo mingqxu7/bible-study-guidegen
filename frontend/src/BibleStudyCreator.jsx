@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Book, Search, Download, Users, Cross, MessageSquare, Globe } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 const translations = {
   en: {
