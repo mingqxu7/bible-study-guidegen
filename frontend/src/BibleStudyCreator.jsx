@@ -217,17 +217,19 @@ ${t('downloadHeaders.generatedBy')}`;
     try {
       const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
-      // Create filename: for Chinese, use verse reference; for English, use title
+      // Create filename: use passage reference with book name for both languages
       let baseFilename;
-      if (i18n.language === 'zh') {
-        // For Chinese, use the verse reference as base filename
-        baseFilename = studyGuide.passage.replace(/[:\s]/g, '_');
-      } else {
-        // For English, clean the title
-        baseFilename = studyGuide.title.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
-      }
+      const passageText = studyGuide.passage || verseInput;
       
-      const filename = `${baseFilename}_Study_Guide.txt`;
+      // Clean the passage text to make it filename-safe
+      baseFilename = passageText
+        .replace(/[:\s]/g, '_')           // Replace colons and spaces with underscores
+        .replace(/[^\w\u4e00-\u9fff_-]/g, '')  // Keep only alphanumeric, Chinese chars, underscores, hyphens
+        .replace(/_+/g, '_')             // Replace multiple underscores with single
+        .replace(/^_|_$/g, '');          // Remove leading/trailing underscores
+      
+      const studyGuideText = i18n.language.startsWith('zh') ? '学习指南' : 'Study_Guide';
+      const filename = `${baseFilename}_${studyGuideText}.txt`;
       
       const a = document.createElement('a');
       a.style.display = 'none';
