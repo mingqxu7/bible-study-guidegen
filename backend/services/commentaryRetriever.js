@@ -8,28 +8,120 @@ export class CommentaryRetriever {
     this.requestDelay = 1000; // 1 second delay between requests to be respectful
   }
 
-  // Parse verse reference (e.g., "John 3:16", "Matthew 5:1-12", "Romans 8:28-39")
-  parseVerseReference(verseInput) {
-    const match = verseInput.match(/^(\d*\s*\w+)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$/i);
-    if (!match) {
-      throw new Error(`Invalid verse format: ${verseInput}`);
-    }
-
-    const [, bookName, chapter, startVerse, endVerse] = match;
-    const normalizedBook = bookName.toLowerCase().trim();
-    const bookCode = bookMapping[normalizedBook];
-    
-    if (!bookCode) {
-      throw new Error(`Unknown book: ${bookName}`);
-    }
-
-    return {
-      book: bookCode,
-      bookName: bookName,
-      chapter: parseInt(chapter),
-      startVerse: startVerse ? parseInt(startVerse) : null,
-      endVerse: endVerse ? parseInt(endVerse) : null
+  // Helper function to get error messages in the specified language
+  getErrorMessage(type, params, language = 'en') {
+    const messages = {
+      en: {
+        specifyChapter: `Please specify chapter and verses, not just the book. For example: "${params.bookName} 1:1-10" or "${params.bookName}1:1-10"`,
+        specifyVerses: `Please specify verses, not just chapter. For example: "${params.bookName} ${params.chapter}:1-10" or "${params.bookName}${params.chapter}:1-10"`,
+        unknownBook: `Unknown book: ${params.bookName}`,
+        invalidFormat: `Invalid verse format: ${params.input}. Supported formats: "John 3:16", "Matthew 5:1-12", "太:10:4-8", "太5:1-12", "哥前 7:24-40"`
+      },
+      zh: {
+        specifyChapter: `请指定章节和经文，不只是书卷。例如："${params.bookName} 1:1-10" 或 "${params.bookName}1:1-10"`,
+        specifyVerses: `请指定经文，不只是章节。例如："${params.bookName} ${params.chapter}:1-10" 或 "${params.bookName}${params.chapter}:1-10"`,
+        unknownBook: `未知的书卷：${params.bookName}`,
+        invalidFormat: `经文格式无效：${params.input}。支持的格式："约 3:16"、"太 5:1-12"、"太:10:4-8"、"太5:1-12"、"哥前 7:24-40"`
+      }
     };
+    
+    return messages[language]?.[type] || messages.en[type];
+  }
+
+  // Helper function to validate parsed verse reference
+  validateParsedReference(result, verseInput, language = 'en') {
+    // Check if only book name was provided (no chapter)
+    if (!result.chapter) {
+      throw new Error(this.getErrorMessage('specifyChapter', { bookName: result.bookName }, language));
+    }
+    
+    // Check if only chapter was provided (no verses)
+    if (!result.startVerse) {
+      throw new Error(this.getErrorMessage('specifyVerses', { bookName: result.bookName, chapter: result.chapter }, language));
+    }
+    
+    return result;
+  }
+
+  // Parse verse reference (e.g., "John 3:16", "Matthew 5:1-12", "Romans 8:28-39", "太:10:4-8", "太5:1-12", "哥前 7:24-40")
+  parseVerseReference(verseInput, language = 'en') {
+    // Handle Chinese format with colon like "太:10:4-8" or "马太福音:10:4-8"
+    const chineseWithColonMatch = verseInput.match(/^([^\d\s:]+):(\d+)(?::(\d+)(?:-(\d+))?)?$/);
+    if (chineseWithColonMatch) {
+      const [, bookName, chapter, startVerse, endVerse] = chineseWithColonMatch;
+      const normalizedBook = bookName.trim();
+      const bookCode = bookMapping[normalizedBook];
+      
+      if (!bookCode) {
+        throw new Error(this.getErrorMessage('unknownBook', { bookName }, language));
+      }
+
+      return this.validateParsedReference({
+        book: bookCode,
+        bookName: bookName,
+        chapter: parseInt(chapter),
+        startVerse: startVerse ? parseInt(startVerse) : null,
+        endVerse: endVerse ? parseInt(endVerse) : null
+      }, verseInput, language);
+    }
+
+    // Handle Chinese format with space like "哥前 7:24-40" or "马太福音 5:1-12"
+    const chineseWithSpaceMatch = verseInput.match(/^([^\d\s:]+)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$/);
+    if (chineseWithSpaceMatch) {
+      const [, bookName, chapter, startVerse, endVerse] = chineseWithSpaceMatch;
+      const normalizedBook = bookName.trim();
+      const bookCode = bookMapping[normalizedBook];
+      
+      if (bookCode) {
+        return this.validateParsedReference({
+          book: bookCode,
+          bookName: bookName,
+          chapter: parseInt(chapter),
+          startVerse: startVerse ? parseInt(startVerse) : null,
+          endVerse: endVerse ? parseInt(endVerse) : null
+        }, verseInput, language);
+      }
+    }
+
+    // Handle Chinese format without colon like "太5:1-12" or "马太福音5:1-12"
+    const chineseNoColonMatch = verseInput.match(/^([^\d\s]+)(\d+)(?::(\d+)(?:-(\d+))?)?$/);
+    if (chineseNoColonMatch) {
+      const [, bookName, chapter, startVerse, endVerse] = chineseNoColonMatch;
+      const normalizedBook = bookName.trim();
+      const bookCode = bookMapping[normalizedBook];
+      
+      if (bookCode) {
+        return this.validateParsedReference({
+          book: bookCode,
+          bookName: bookName,
+          chapter: parseInt(chapter),
+          startVerse: startVerse ? parseInt(startVerse) : null,
+          endVerse: endVerse ? parseInt(endVerse) : null
+        }, verseInput, language);
+      }
+    }
+
+    // Handle English format like "John 3:16" or "Matthew 5:1-12"
+    const englishMatch = verseInput.match(/^(\d*\s*\w+)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$/i);
+    if (englishMatch) {
+      const [, bookName, chapter, startVerse, endVerse] = englishMatch;
+      const normalizedBook = bookName.toLowerCase().trim();
+      const bookCode = bookMapping[normalizedBook];
+      
+      if (!bookCode) {
+        throw new Error(this.getErrorMessage('unknownBook', { bookName }, language));
+      }
+
+      return this.validateParsedReference({
+        book: bookCode,
+        bookName: bookName,
+        chapter: parseInt(chapter),
+        startVerse: startVerse ? parseInt(startVerse) : null,
+        endVerse: endVerse ? parseInt(endVerse) : null
+      }, verseInput, language);
+    }
+
+    throw new Error(this.getErrorMessage('invalidFormat', { input: verseInput }, language));
   }
 
   // Fetch commentary content from StudyLight.org
@@ -257,9 +349,9 @@ export class CommentaryRetriever {
   }
 
   // Get commentaries for a specific denomination and passage
-  async getCommentariesForDenomination(denomination, verseReference, maxCommentaries = 3) {
+  async getCommentariesForDenomination(denomination, verseReference, maxCommentaries = 3, language = 'en') {
     try {
-      const parsedVerse = this.parseVerseReference(verseReference);
+      const parsedVerse = this.parseVerseReference(verseReference, language);
       const commentaries = commentaryMapping[denomination];
       
       if (!commentaries) {

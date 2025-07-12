@@ -4,6 +4,7 @@ import { getCommentaryUrl } from '../backend/services/commentaryMapping.js';
 
 const MAX_OUTPUT_TOKENS = parseInt(process.env.MAX_OUTPUT_TOKENS) || 16000;
 const MAX_COMMENTARIES = parseInt(process.env.MAX_COMMENTARIES) || 3;
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -26,7 +27,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { verseInput, selectedTheology, theologicalStances } = req.body;
+    const { verseInput, selectedTheology, theologicalStances, language = 'en' } = req.body;
 
     if (!verseInput || !selectedTheology) {
       return res.status(400).json({ 
@@ -52,7 +53,8 @@ export default async function handler(req, res) {
       commentaryData = await commentaryRetriever.getCommentariesForDenomination(
         selectedTheology, 
         verseInput,
-        MAX_COMMENTARIES
+        MAX_COMMENTARIES,
+        language
       );
       
       const successfulCount = commentaryData.commentaries.length;
@@ -75,6 +77,22 @@ export default async function handler(req, res) {
       }
     } catch (commentaryError) {
       console.error('Error retrieving commentaries:', commentaryError);
+      
+      // If this is a validation error (verse format), return it to the user
+      if (commentaryError.message.includes('Please specify verses') || 
+          commentaryError.message.includes('Please specify chapter') ||
+          commentaryError.message.includes('Invalid verse format') ||
+          commentaryError.message.includes('Unknown book') ||
+          commentaryError.message.includes('请指定经文') ||
+          commentaryError.message.includes('请指定章节') ||
+          commentaryError.message.includes('经文格式无效') ||
+          commentaryError.message.includes('未知的书卷')) {
+        return res.status(400).json({ 
+          error: commentaryError.message 
+        });
+      }
+      
+      // For other errors, continue with default commentary
       commentaryData = {
         denomination: selectedTheology,
         passage: verseInput,
@@ -115,7 +133,13 @@ ${commentary.content}
       .join('\n');
 
     // Step 3: Create enhanced prompt with commentary content
+    const languageInstructions = language === 'zh' 
+      ? 'IMPORTANT LANGUAGE REQUIREMENT: Generate the entire study guide in Simplified Chinese. All content including titles, explanations, questions, and applications must be in Chinese.'
+      : 'IMPORTANT LANGUAGE REQUIREMENT: Generate the entire study guide in English.';
+    
     const prompt = `Create a comprehensive Bible study guide for cell group leaders based on the following:
+
+${languageInstructions}
 
 PASSAGE: ${verseInput}
 THEOLOGICAL PERSPECTIVE: ${selectedStance.name} - ${selectedStance.description}
@@ -133,8 +157,10 @@ Using the above commentaries as your primary source material, create a detailed 
    - Literary context within the book
 
 2. **Verse-by-Verse Exegesis**
-   - IMPORTANT: You must provide detailed explanation for EVERY SINGLE VERSE in the passage ${verseInput}
-   - Do not skip any verses - cover the complete range from start to end
+   - CRITICAL REQUIREMENT: You MUST provide detailed explanation for EVERY SINGLE VERSE in the passage ${verseInput}
+   - If the passage is ${verseInput}, you must include ALL verses from the beginning to the end of that range
+   - ABSOLUTELY NO SKIPPING: Cover each verse individually - if there are 17 verses, provide 17 separate explanations
+   - Each verse must have its own entry in the exegesis array with verse number, text, and explanation
    - Base explanations on the provided commentaries WITH CITATIONS [1], [2], etc.
    - Include citation numbers when referencing commentary insights
    - Key Greek/Hebrew word insights where mentioned in commentaries (with citations)
@@ -160,7 +186,13 @@ Base your study guide primarily on the commentary content provided above. Draw i
 
 IMPORTANT: You must include a "commentariesUsed" section in your JSON response that lists all the commentaries you cited, with their citation numbers, names, and authors.
 
-CRITICAL REQUIREMENT: Your exegesis array must include an entry for EVERY SINGLE VERSE in the passage ${verseInput}. Do not omit any verses from the specified range. If the passage is ${verseInput}, then you must cover every verse from the beginning to the end of that range.
+CRITICAL REQUIREMENT FOR VERSE COVERAGE:
+- Your exegesis array MUST include an entry for EVERY SINGLE VERSE in the passage ${verseInput}
+- Do not omit ANY verses from the specified range
+- If the passage is ${verseInput}, you must cover EVERY verse from the beginning to the end of that range
+- Count the verses carefully and ensure your exegesis array has the correct number of entries
+- For example, if the passage is "1 Corinthians 7:24-40", you must include verses 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, and 40 (17 verses total)
+- FAILURE TO INCLUDE ALL VERSES IS UNACCEPTABLE
 
 Respond with a well-structured JSON object in this format:
 {
@@ -210,7 +242,7 @@ DO NOT OUTPUT ANYTHING OTHER THAN VALID JSON. DON'T INCLUDE LEADING BACKTICKS LI
     // Step 4: Generate study guide with Claude
     console.log('Generating study guide with Claude...');
     const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: ANTHROPIC_MODEL,
       max_tokens: MAX_OUTPUT_TOKENS,
       messages: [
         {
