@@ -34,6 +34,8 @@ Vercel will host both frontend and backend in a single deployment.
 - Frontend is served from `/frontend/dist`
 - API routes in `/api` folder become serverless functions
 - No need to set VITE_API_URL (defaults to same domain)
+- **Port configuration**: Not needed for Vercel - serverless functions handle routing automatically
+- Frontend requests to `/api/*` are automatically routed to the corresponding serverless functions
 
 ## Option 2: Render Deployment
 
