@@ -4,10 +4,16 @@
   "installCommand": "cd frontend && npm install",
   "functions": {
     "api/generate-study.js": {
-      "maxDuration": 30
+      "maxDuration": 60
     },
     "api/health.js": {
       "maxDuration": 10
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    }
+  ]
 }

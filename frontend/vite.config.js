@@ -7,6 +7,13 @@ export default defineConfig({
     port: 3000,
     strictPort: true, // This will make Vite fail if port 3000 is in use, instead of trying another port
     open: true,
-    host: 'localhost'
+    host: 'localhost',
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false
+      }
+    }
   }
 })

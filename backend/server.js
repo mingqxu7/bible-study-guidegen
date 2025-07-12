@@ -45,7 +45,7 @@ app.post('/api/generate-study', async (req, res) => {
       });
     }
 
-    console.log(`Generating study guide for ${verseInput} with ${selectedStance.name} perspective`);
+    console.log(`Generating study guide for ${verseInput} with ${selectedStance.name} perspective in ${language} language`);
 
     // Step 1: Retrieve commentaries from StudyLight.org
     let commentaryData;
@@ -144,8 +144,22 @@ ${commentary.content}
       .join('\n');
 
     // Step 3: Create enhanced prompt with commentary content
-    const languageInstructions = language === 'zh' 
-      ? 'IMPORTANT LANGUAGE REQUIREMENT: Generate the entire study guide in Simplified Chinese. All content including titles, explanations, questions, and applications must be in Chinese.'
+    const isChinese = language === 'zh' || language === 'zh-CN' || language.startsWith('zh');
+    const languageInstructions = isChinese 
+      ? `CRITICAL LANGUAGE REQUIREMENT: 
+         You MUST generate the ENTIRE study guide in Simplified Chinese (简体中文).
+         - ALL content must be in Chinese, including:
+           - Title (标题)
+           - Overview sections (概览部分)
+           - Verse explanations (经文解释)
+           - Discussion questions (讨论问题)
+           - Life applications (生活应用)
+           - ALL other text
+         - Do NOT mix English and Chinese
+         - Even when citing English commentaries, translate the insights into Chinese
+         - The ONLY English allowed is author names and commentary titles in citations
+         
+         ABSOLUTELY NO ENGLISH TEXT IN THE CONTENT - EVERYTHING MUST BE CHINESE!`
       : 'IMPORTANT LANGUAGE REQUIREMENT: Generate the entire study guide in English.';
     
     const prompt = `Create a comprehensive Bible study guide for cell group leaders based on the following:
@@ -206,7 +220,47 @@ CRITICAL REQUIREMENT FOR VERSE COVERAGE:
 - FAILURE TO INCLUDE ALL VERSES IS UNACCEPTABLE
 
 Respond with a well-structured JSON object in this format:
-{
+${isChinese ? `{
+  "title": "学习标题（中文）",
+  "passage": "${verseInput}",
+  "theology": "${selectedStance.name}",
+  "overview": {
+    "introduction": "简要介绍（中文）",
+    "historicalContext": "历史背景（中文）",
+    "literaryContext": "文学背景（中文）"
+  },
+  "exegesis": [
+    {
+      "verse": "经文章节",
+      "text": "经文内容（中文）",
+      "explanation": "基于注释书的详细解释（中文）",
+      "keyInsights": ["要点1（中文）", "要点2（中文）"],
+      "crossReferences": ["参考经文1", "参考经文2"]
+    }
+  ],
+  "discussionQuestions": [
+    "讨论问题1（中文）",
+    "讨论问题2（中文）"
+  ],
+  "lifeApplication": {
+    "practicalApplications": ["实际应用1（中文）", "实际应用2（中文）"],
+    "reflectionPoints": ["反思要点1（中文）", "反思要点2（中文）"],
+    "actionSteps": ["行动步骤1（中文）", "行动步骤2（中文）"]
+  },
+  "additionalResources": {
+    "crossReferences": ["参考经文1", "参考经文2"],
+    "memoryVerses": ["背诵经文1", "背诵经文2"],
+    "prayerPoints": ["祷告要点1（中文）", "祷告要点2（中文）"]
+  },
+  "commentariesUsed": [
+    {
+      "citation": "[1]",
+      "name": "Commentary name",
+      "author": "Author name",
+      "url": "https://www.studylight.org/commentaries/eng/code/book-chapter.html"
+    }
+  ]
+}` : `{
   "title": "Study title",
   "passage": "${verseInput}",
   "theology": "${selectedStance.name}",
@@ -246,7 +300,7 @@ Respond with a well-structured JSON object in this format:
       "url": "https://www.studylight.org/commentaries/eng/code/book-chapter.html"
     }
   ]
-}
+}`}
 
 DO NOT OUTPUT ANYTHING OTHER THAN VALID JSON. DON'T INCLUDE LEADING BACKTICKS LIKE \`\`\`json.`;
 

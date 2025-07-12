@@ -2,9 +2,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import { CommentaryRetriever } from '../backend/services/commentaryRetriever.js';
 import { getCommentaryUrl } from '../backend/services/commentaryMapping.js';
 
-const MAX_OUTPUT_TOKENS = parseInt(process.env.MAX_OUTPUT_TOKENS) || 16000;
-const MAX_COMMENTARIES = parseInt(process.env.MAX_COMMENTARIES) || 3;
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
+const MAX_OUTPUT_TOKENS = parseInt(process.env.MAX_OUTPUT_TOKENS) || 8192;
+const MAX_COMMENTARIES = parseInt(process.env.MAX_COMMENTARIES) || 2; // Reduced for faster processing
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -43,19 +43,27 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log(`Generating study guide for ${verseInput} with ${selectedStance.name} perspective`);
+    console.log(`Generating study guide for ${verseInput} with ${selectedStance.name} perspective in ${language} language`);
 
-    // Step 1: Retrieve commentaries from StudyLight.org
+    // Step 1: Retrieve commentaries from StudyLight.org with timeout
     let commentaryData;
     let usableCommentaries = [];
     try {
       console.log('Retrieving commentaries...');
-      commentaryData = await commentaryRetriever.getCommentariesForDenomination(
+      
+      // Add timeout wrapper for commentary retrieval (15 seconds max)
+      const commentaryPromise = commentaryRetriever.getCommentariesForDenomination(
         selectedTheology, 
         verseInput,
         MAX_COMMENTARIES,
         language
       );
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Commentary retrieval timeout')), 15000)
+      );
+      
+      commentaryData = await Promise.race([commentaryPromise, timeoutPromise]);
       
       const successfulCount = commentaryData.commentaries.length;
       const failedCount = commentaryData.failedCommentaries?.length || 0;
@@ -92,14 +100,15 @@ export default async function handler(req, res) {
         });
       }
       
-      // For other errors, continue with default commentary
+      // For timeout or other errors, continue with minimal commentary
+      console.log('Using fallback commentary due to timeout or retrieval error');
       commentaryData = {
         denomination: selectedTheology,
         passage: verseInput,
         commentaries: [{
-          name: 'Default Commentary',
+          name: 'General Biblical Knowledge',
           author: 'System',
-          content: 'Commentary retrieval failed. Using general theological knowledge.',
+          content: `Commentary retrieval ${commentaryError.message.includes('timeout') ? 'timed out' : 'failed'}. Using general theological knowledge from ${selectedStance.name} perspective.`,
           source: 'System'
         }],
         failedCommentaries: []
@@ -133,8 +142,22 @@ ${commentary.content}
       .join('\n');
 
     // Step 3: Create enhanced prompt with commentary content
-    const languageInstructions = language === 'zh' 
-      ? 'IMPORTANT LANGUAGE REQUIREMENT: Generate the entire study guide in Simplified Chinese. All content including titles, explanations, questions, and applications must be in Chinese.'
+    const isChinese = language === 'zh' || language === 'zh-CN' || language.startsWith('zh');
+    const languageInstructions = isChinese 
+      ? `CRITICAL LANGUAGE REQUIREMENT: 
+         You MUST generate the ENTIRE study guide in Simplified Chinese (简体中文).
+         - ALL content must be in Chinese, including:
+           - Title (标题)
+           - Overview sections (概览部分)
+           - Verse explanations (经文解释)
+           - Discussion questions (讨论问题)
+           - Life applications (生活应用)
+           - ALL other text
+         - Do NOT mix English and Chinese
+         - Even when citing English commentaries, translate the insights into Chinese
+         - The ONLY English allowed is author names and commentary titles in citations
+         
+         ABSOLUTELY NO ENGLISH TEXT IN THE CONTENT - EVERYTHING MUST BE CHINESE!`
       : 'IMPORTANT LANGUAGE REQUIREMENT: Generate the entire study guide in English.';
     
     const prompt = `Create a comprehensive Bible study guide for cell group leaders based on the following:
@@ -195,7 +218,47 @@ CRITICAL REQUIREMENT FOR VERSE COVERAGE:
 - FAILURE TO INCLUDE ALL VERSES IS UNACCEPTABLE
 
 Respond with a well-structured JSON object in this format:
-{
+${isChinese ? `{
+  "title": "学习标题（用中文）",
+  "passage": "${verseInput}",
+  "theology": "${selectedStance.name}",
+  "overview": {
+    "introduction": "简要介绍（用中文）",
+    "historicalContext": "历史背景（用中文）",
+    "literaryContext": "文学背景（用中文）"
+  },
+  "exegesis": [
+    {
+      "verse": "经文章节",
+      "text": "经文内容（用中文）",
+      "explanation": "基于注释书的详细解释（用中文）",
+      "keyInsights": ["要点1（用中文）", "要点2（用中文）"],
+      "crossReferences": ["参考经文1", "参考经文2"]
+    }
+  ],
+  "discussionQuestions": [
+    "讨论问题1（用中文）",
+    "讨论问题2（用中文）"
+  ],
+  "lifeApplication": {
+    "practicalApplications": ["实际应用1（用中文）", "实际应用2（用中文）"],
+    "reflectionPoints": ["反思要点1（用中文）", "反思要点2（用中文）"],
+    "actionSteps": ["行动步骤1（用中文）", "行动步骤2（用中文）"]
+  },
+  "additionalResources": {
+    "crossReferences": ["参考经文1", "参考经文2"],
+    "memoryVerses": ["背诵经文1", "背诵经文2"],
+    "prayerPoints": ["祷告要点1（用中文）", "祷告要点2（用中文）"]
+  },
+  "commentariesUsed": [
+    {
+      "citation": "[1]",
+      "name": "Commentary name",
+      "author": "Author name",
+      "url": "https://www.studylight.org/commentaries/eng/code/book-chapter.html"
+    }
+  ]
+}` : `{
   "title": "Study title",
   "passage": "${verseInput}",
   "theology": "${selectedStance.name}",
@@ -235,7 +298,7 @@ Respond with a well-structured JSON object in this format:
       "url": "https://www.studylight.org/commentaries/eng/code/book-chapter.html"
     }
   ]
-}
+}`}
 
 DO NOT OUTPUT ANYTHING OTHER THAN VALID JSON. DON'T INCLUDE LEADING BACKTICKS LIKE \`\`\`json.`;
 
