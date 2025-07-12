@@ -142,7 +142,8 @@ ${commentary.content}
       .join('\n');
 
     // Step 3: Create enhanced prompt with commentary content
-    const languageInstructions = language === 'zh' 
+    const isChinese = language === 'zh' || language === 'zh-CN' || language.startsWith('zh');
+    const languageInstructions = isChinese 
       ? `CRITICAL LANGUAGE REQUIREMENT: 
          You MUST generate the ENTIRE study guide in Simplified Chinese (简体中文).
          - ALL content must be in Chinese, including:
@@ -154,7 +155,9 @@ ${commentary.content}
            - ALL other text
          - Do NOT mix English and Chinese
          - Even when citing English commentaries, translate the insights into Chinese
-         - The ONLY English allowed is author names and commentary titles in citations`
+         - The ONLY English allowed is author names and commentary titles in citations
+         
+         ABSOLUTELY NO ENGLISH TEXT IN THE CONTENT - EVERYTHING MUST BE CHINESE!`
       : 'IMPORTANT LANGUAGE REQUIREMENT: Generate the entire study guide in English.';
     
     const prompt = `Create a comprehensive Bible study guide for cell group leaders based on the following:
@@ -215,7 +218,7 @@ CRITICAL REQUIREMENT FOR VERSE COVERAGE:
 - FAILURE TO INCLUDE ALL VERSES IS UNACCEPTABLE
 
 Respond with a well-structured JSON object in this format:
-${language === 'zh' ? `{
+${isChinese ? `{
   "title": "学习标题（用中文）",
   "passage": "${verseInput}",
   "theology": "${selectedStance.name}",
