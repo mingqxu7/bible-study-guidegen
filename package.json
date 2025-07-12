@@ -1,0 +1,14 @@
+{
+  "name": "bible-study-guidegen",
+  "version": "1.0.0",
+  "description": "Bible Study Guide Generator",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.3",
+    "axios": "^1.6.8",
+    "cheerio": "^1.0.0-rc.12"
+  }
+}

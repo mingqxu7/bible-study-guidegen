@@ -1,0 +1,32 @@
+services:
+  # Backend API Service
+  - type: web
+    name: bible-study-backend
+    runtime: node
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: MAX_OUTPUT_TOKENS
+        value: 16000
+      - key: MAX_COMMENTARIES
+        value: 3
+    
+  # Frontend Static Site
+  - type: web
+    name: bible-study-frontend
+    runtime: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+    envVars:
+      - key: VITE_API_URL
+        value: https://bible-study-backend.onrender.com/api
