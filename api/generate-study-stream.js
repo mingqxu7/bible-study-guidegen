@@ -193,10 +193,23 @@ ${commentary.content}
 ---`)
       .join('\n');
 
-    // Create prompt (same as original but simplified for brevity)
+    // Create complete prompt with full specifications
     const isChinese = language === 'zh' || language === 'zh-CN' || language.startsWith('zh');
     const languageInstructions = isChinese 
-      ? `CRITICAL LANGUAGE REQUIREMENT: You MUST generate the ENTIRE study guide in Simplified Chinese (简体中文). ALL content must be in Chinese. Do NOT mix English and Chinese. The ONLY English allowed is author names and commentary titles in citations.`
+      ? `CRITICAL LANGUAGE REQUIREMENT: 
+         You MUST generate the ENTIRE study guide in Simplified Chinese (简体中文).
+         - ALL content must be in Chinese, including:
+           - Title (标题)
+           - Overview sections (概览部分)
+           - Verse explanations (经文解释)
+           - Discussion questions (讨论问题)
+           - Life applications (生活应用)
+           - ALL other text
+         - Do NOT mix English and Chinese
+         - Even when citing English commentaries, translate the insights into Chinese
+         - The ONLY English allowed is author names and commentary titles in citations
+         
+         ABSOLUTELY NO ENGLISH TEXT IN THE CONTENT - EVERYTHING MUST BE CHINESE!`
       : 'IMPORTANT LANGUAGE REQUIREMENT: Generate the entire study guide in English.';
     
     const prompt = `Create a comprehensive Bible study guide for cell group leaders based on the following:
@@ -209,9 +222,136 @@ THEOLOGICAL PERSPECTIVE: ${selectedStance.name} - ${selectedStance.description}
 COMMENTARY SOURCES:
 ${commentariesText}
 
-Using the above commentaries as your primary source material, create a detailed study guide with verse-by-verse exegesis, discussion questions, life applications, and additional resources. Include a "commentariesUsed" section with citation numbers [1], [2], etc.
+IMPORTANT CITATION REQUIREMENT: When using information from the commentaries above, you MUST cite them using the numbers in brackets [1], [2], [3], etc. Every claim, interpretation, or insight drawn from a commentary must include its citation number.
 
-Respond with a well-structured JSON object with the required format. DO NOT OUTPUT ANYTHING OTHER THAN VALID JSON.`;
+Using the above commentaries as your primary source material, create a detailed study guide that includes:
+
+1. **Passage Overview**
+   - Brief introduction to the passage
+   - Historical and cultural context
+   - Literary context within the book
+
+2. **Verse-by-Verse Exegesis**
+   - CRITICAL REQUIREMENT: You MUST provide detailed explanation for EVERY SINGLE VERSE in the passage ${verseInput}
+   - If the passage is ${verseInput}, you must include ALL verses from the beginning to the end of that range
+   - ABSOLUTELY NO SKIPPING: Cover each verse individually - if there are 3 verses, provide 3 separate explanations
+   - Each verse must have its own entry in the exegesis array with verse number, text, and explanation
+   - Base explanations on the provided commentaries WITH CITATIONS [1], [2], etc.
+   - Include citation numbers when referencing commentary insights
+   - Key Greek/Hebrew word insights where mentioned in commentaries (with citations)
+   - Cross-references to related passages
+   - Theological insights from the ${selectedStance.name} perspective
+
+3. **Discussion Questions** (5-7 thought-provoking questions)
+   - Questions that encourage deep reflection
+   - Questions that connect to modern life
+   - Questions suitable for group discussion
+
+4. **Life Application**
+   - Practical ways to apply the passage
+   - Personal reflection points
+   - Action steps for the week
+
+5. **Additional Resources**
+   - Suggested cross-references
+   - Memory verses
+   - Prayer points
+
+Base your study guide primarily on the commentary content provided above. Draw insights, explanations, and theological perspectives directly from these sources WITH PROPER CITATIONS. When you use information from a specific commentary, include the citation number [1], [2], etc. Format this as a complete study guide that a cell group leader can use immediately.
+
+IMPORTANT: You must include a "commentariesUsed" section in your JSON response that lists all the commentaries you cited, with their citation numbers, names, and authors.
+
+CRITICAL REQUIREMENT FOR VERSE COVERAGE:
+- Your exegesis array MUST include an entry for EVERY SINGLE VERSE in the passage ${verseInput}
+- Do not omit ANY verses from the specified range
+- If the passage is ${verseInput}, you must cover EVERY verse from the beginning to the end of that range
+- Count the verses carefully and ensure your exegesis array has the correct number of entries
+- FAILURE TO INCLUDE ALL VERSES IS UNACCEPTABLE
+
+Respond with a well-structured JSON object in this format:
+${isChinese ? `{
+  "title": "学习标题（中文）",
+  "passage": "${verseInput}",
+  "theology": "${selectedStance.name}",
+  "overview": {
+    "introduction": "简要介绍（中文）",
+    "historicalContext": "历史背景（中文）",
+    "literaryContext": "文学背景（中文）"
+  },
+  "exegesis": [
+    {
+      "verse": "经文章节",
+      "text": "经文内容（中文）",
+      "explanation": "基于注释书的详细解释（中文）",
+      "keyInsights": ["要点1（中文）", "要点2（中文）"],
+      "crossReferences": ["参考经文1", "参考经文2"]
+    }
+  ],
+  "discussionQuestions": [
+    "讨论问题1（中文）",
+    "讨论问题2（中文）"
+  ],
+  "lifeApplication": {
+    "practicalApplications": ["实际应用1（中文）", "实际应用2（中文）"],
+    "reflectionPoints": ["反思要点1（中文）", "反思要点2（中文）"],
+    "actionSteps": ["行动步骤1（中文）", "行动步骤2（中文）"]
+  },
+  "additionalResources": {
+    "crossReferences": ["参考经文1", "参考经文2"],
+    "memoryVerses": ["背诵经文1", "背诵经文2"],
+    "prayerPoints": ["祷告要点1（中文）", "祷告要点2（中文）"]
+  },
+  "commentariesUsed": [
+    {
+      "citation": "[1]",
+      "name": "Commentary name",
+      "author": "Author name",
+      "url": "https://www.studylight.org/commentaries/eng/code/book-chapter.html"
+    }
+  ]
+}` : `{
+  "title": "Study title",
+  "passage": "${verseInput}",
+  "theology": "${selectedStance.name}",
+  "overview": {
+    "introduction": "Brief introduction",
+    "historicalContext": "Historical context",
+    "literaryContext": "Literary context"
+  },
+  "exegesis": [
+    {
+      "verse": "Verse reference",
+      "text": "Verse text",
+      "explanation": "Detailed explanation based on commentaries",
+      "keyInsights": ["insight1", "insight2"],
+      "crossReferences": ["ref1", "ref2"]
+    }
+  ],
+  "discussionQuestions": [
+    "Question 1",
+    "Question 2"
+  ],
+  "lifeApplication": {
+    "practicalApplications": ["app1", "app2"],
+    "reflectionPoints": ["point1", "point2"],
+    "actionSteps": ["step1", "step2"]
+  },
+  "additionalResources": {
+    "crossReferences": ["ref1", "ref2"],
+    "memoryVerses": ["verse1", "verse2"],
+    "prayerPoints": ["point1", "point2"]
+  },
+  "commentariesUsed": [
+    {
+      "citation": "[1]",
+      "name": "Commentary name",
+      "author": "Author name",
+      "url": "https://www.studylight.org/commentaries/eng/code/book-chapter.html"
+    }
+  ]
+}`}
+
+DO NOT OUTPUT ANYTHING OTHER THAN VALID JSON. DON'T INCLUDE LEADING BACKTICKS LIKE \`\`\`json.`;
 
     // Step 4: Generate with Claude
     res.write(`data: ${JSON.stringify({ 
@@ -242,6 +382,32 @@ Respond with a well-structured JSON object with the required format. DO NOT OUTP
         author: c.author,
         source: c.source || `StudyLight.org - ${c.name}`,
         url: c.url || (c.code ? getCommentaryUrl(c.code, commentaryData.parsedVerse?.book, commentaryData.parsedVerse?.chapter) : null)
+      }));
+    }
+
+    studyData.commentariesUsed = studyData.commentariesUsed.map((commentary, index) => {
+      if (!commentary.url && usableCommentaries[index]) {
+        commentary.url = usableCommentaries[index].url || (usableCommentaries[index].code 
+          ? getCommentaryUrl(usableCommentaries[index].code, commentaryData.parsedVerse?.book, commentaryData.parsedVerse?.chapter) 
+          : null);
+      }
+      return commentary;
+    });
+    
+    // Add metadata about all commentary sources attempted
+    studyData.allCommentarySources = commentaryData.commentaries.map(c => ({
+      name: c.name,
+      author: c.author,
+      source: c.source,
+      available: !c.content.startsWith('No commentary available for verses')
+    }));
+    
+    // Add information about failed commentaries if any
+    if (commentaryData.failedCommentaries && commentaryData.failedCommentaries.length > 0) {
+      studyData.filteredCommentaries = commentaryData.failedCommentaries.map(c => ({
+        name: c.name,
+        author: c.author,
+        reason: 'Failed to retrieve due to timeout or connection error'
       }));
     }
     
