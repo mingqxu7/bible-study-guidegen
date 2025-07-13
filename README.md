@@ -5,29 +5,46 @@ A comprehensive web application that generates theologically-informed Bible stud
 ## Features
 
 - **Theological Perspectives**: Choose from major theological stances (Reformed, Arminian, Dispensationalist, Lutheran, Catholic)
+- **Multilingual Support**: Full internationalization with English and Chinese language support
 - **Comprehensive Study Guides**: Generates detailed guides with verse-by-verse exegesis, discussion questions, and life applications
-- **Expert Commentary**: Draws from respected biblical commentaries and scholarship
+- **Expert Commentary**: Draws from respected biblical commentaries and scholarship from StudyLight.org
 - **Downloadable Content**: Export study guides as text files for offline use
 - **Group-Ready**: Designed specifically for cell group leaders and Bible study facilitators
+- **Analytics**: Integrated Vercel Analytics for usage tracking
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
 
 ## Project Structure
 
 ```
 bible-study-guide-generator/
-├── backend/                 # Express.js API server
+├── api/                     # Vercel serverless API functions
+│   └── generate-study.js    # Main API endpoint (Vercel deployment)
+├── backend/                 # Express.js API server (local development)
 │   ├── server.js           # Main server file
+│   ├── services/           # Backend services
+│   │   ├── commentaryRetriever.js  # StudyLight.org scraping service
+│   │   └── commentaryMapping.js    # Theological denomination mappings
 │   ├── package.json        # Backend dependencies
 │   └── .env.example        # Environment variables template
 ├── frontend/               # React frontend application
 │   ├── src/
-│   │   ├── BibleStudyCreator.jsx  # Main React component
-│   │   ├── main.jsx        # React entry point
+│   │   ├── BibleStudyCreator.jsx  # Main React component with i18n
+│   │   ├── main.jsx        # React entry point with Analytics
+│   │   ├── i18n.js         # Internationalization configuration
 │   │   └── index.css       # Tailwind CSS imports
-│   ├── index.html          # HTML template
-│   ├── package.json        # Frontend dependencies
-│   ├── vite.config.js      # Vite configuration
+│   ├── public/
+│   │   ├── favicon.svg     # App favicon
+│   │   ├── icon.svg        # App icon
+│   │   └── apple-touch-icon.svg  # iOS app icon
+│   ├── index.html          # HTML template with PWA meta tags
+│   ├── package.json        # Frontend dependencies with analytics
+│   ├── vite.config.js      # Vite configuration with proxy
 │   ├── tailwind.config.js  # Tailwind CSS configuration
 │   └── postcss.config.js   # PostCSS configuration
+├── vercel.json             # Vercel deployment configuration
+├── render.yaml             # Render deployment configuration
+├── DEPLOYMENT.md           # Deployment instructions
+├── CLAUDE.md              # AI development guidelines
 └── README.md               # This file
 ```
 
@@ -90,10 +107,18 @@ The frontend will run on `http://localhost:3000`
 
 ## Usage
 
-1. **Select Theological Perspective**: Choose from the available theological stances that best aligns with your church's beliefs
-2. **Enter Bible Passage**: Input the passage you want to study (e.g., "Matthew 5:1-12", "John 3:16", "Romans 8:28-39")
-3. **Generate Study Guide**: Click the generate button to create a comprehensive study guide
-4. **Download**: Use the download button to save the study guide as a text file
+1. **Choose Language**: Select English or Chinese (中文) from the language switcher
+2. **Select Theological Perspective**: Choose from the available theological stances that best aligns with your church's beliefs
+3. **Enter Bible Passage**: Input the passage you want to study (e.g., "Matthew 5:1-12", "John 3:16", "Romans 8:28-39")
+   - Supports English book names (e.g., "Matthew", "John", "Romans")
+   - Supports Chinese book names (e.g., "马太福音", "约翰福音", "罗马书")
+4. **Generate Study Guide**: Click the generate button to create a comprehensive study guide
+5. **Download**: Use the download button to save the study guide as a text file
+
+### Language Support
+- **English**: Full interface and study guide generation in English
+- **Chinese (简体中文)**: Complete Chinese interface with study guides generated in Simplified Chinese
+- Automatic browser language detection on first visit
 
 ## API Endpoints
 
@@ -105,7 +130,8 @@ Generates a Bible study guide based on the provided passage and theological pers
 {
   "verseInput": "John 3:16",
   "selectedTheology": "calvinism",
-  "theologicalStances": [...]
+  "theologicalStances": [...],
+  "language": "en"
 }
 ```
 
@@ -137,16 +163,27 @@ Health check endpoint to verify the API is running.
 ## Technologies Used
 
 ### Frontend
-- React 18
-- Vite (build tool)
-- Tailwind CSS (styling)
-- Lucide React (icons)
+- React 18 with React Router
+- Vite (build tool and development server)
+- Tailwind CSS (utility-first styling)
+- Lucide React (icon library)
+- i18next (internationalization framework)
+- react-i18next (React integration for i18n)
+- Vercel Analytics (usage tracking)
 
 ### Backend
-- Express.js (web framework)
+- Express.js (web framework for local development)
+- Vercel Serverless Functions (production API)
 - Anthropic SDK (Claude AI integration)
+- Axios + Cheerio (web scraping for commentaries)
 - CORS (cross-origin resource sharing)
 - dotenv (environment variables)
+
+### Services & Integrations
+- StudyLight.org (biblical commentary retrieval)
+- Claude AI (study guide generation)
+- Vercel (hosting and serverless functions)
+- Language Detection (automatic locale detection)
 
 ## Development
 
