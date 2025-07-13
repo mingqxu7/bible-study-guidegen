@@ -186,9 +186,11 @@ const BibleStudyCreator = () => {
 
       eventSource.onerror = (error) => {
         console.error('SSE connection error:', error);
-        setError(t('errors.serverError'));
         eventSource.close();
-        setIsGenerating(false);
+        
+        // Fallback to regular POST request if SSE fails
+        console.log('SSE failed, falling back to regular API call...');
+        fallbackToRegularAPI();
       };
 
       // Cleanup function
@@ -198,6 +200,70 @@ const BibleStudyCreator = () => {
 
     } catch (error) {
       console.error('Error setting up SSE:', error);
+      // Fallback to regular API call
+      fallbackToRegularAPI();
+    }
+  };
+
+  // Fallback function for when SSE fails
+  const fallbackToRegularAPI = async () => {
+    try {
+      // Add a progress step for fallback
+      setProgressSteps([{
+        id: 'fallback',
+        message: i18n.language === 'zh' ? '实时更新不可用，使用标准模式生成...' : 'Real-time updates unavailable, using standard mode...',
+        timestamp: new Date(),
+        details: null
+      }]);
+      setCurrentStep('fallback');
+
+      const response = await fetch(`${API_BASE_URL}/generate-study`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          verseInput,
+          selectedTheology,
+          theologicalStances,
+          language: i18n.language
+        }),
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to generate study guide';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (jsonError) {
+          try {
+            const errorText = await response.text();
+            errorMessage = errorText || `Server error: ${response.status}`;
+          } catch {
+            errorMessage = `Server error: ${response.status} ${response.statusText}`;
+          }
+        }
+        throw new Error(errorMessage);
+      }
+
+      const responseText = await response.text();
+      if (!responseText) {
+        throw new Error('Empty response from server');
+      }
+
+      let studyData;
+      try {
+        studyData = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse response:', responseText);
+        throw new Error('Invalid response format from server');
+      }
+      
+      setStudyGuide(studyData);
+      setCurrentStep('completed');
+      setIsGenerating(false);
+    } catch (error) {
+      console.error('Error in fallback API call:', error);
       setError(translateError(error.message) || t('errors.serverError'));
       setIsGenerating(false);
     }
@@ -481,7 +547,7 @@ ${t('downloadHeaders.generatedBy')}`;
                 {progressSteps.length > 0 && (
                   <div className="space-y-3 max-h-[calc(100vh-20rem)] overflow-y-auto">
                     {progressSteps.map((step, index) => {
-                      const stepOrder = ['parsing', 'parsed', 'retrieving_commentaries', 'commentaries_retrieved', 'filtering_commentaries', 'commentaries_filtered', 'generating_guide', 'completed'];
+                      const stepOrder = ['parsing', 'parsed', 'retrieving_commentaries', 'commentaries_retrieved', 'filtering_commentaries', 'commentaries_filtered', 'generating_guide', 'fallback', 'completed'];
                       const isActive = currentStep === step.id;
                       const currentIndex = stepOrder.indexOf(currentStep);
                       const stepIndex = stepOrder.indexOf(step.id);
