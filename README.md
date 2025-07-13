@@ -4,23 +4,28 @@ A comprehensive web application that generates theologically-informed Bible stud
 
 ## Features
 
+- **Real-Time Progress Tracking**: Live updates showing backend actions during study guide generation
 - **Theological Perspectives**: Choose from major theological stances (Reformed, Arminian, Dispensationalist, Lutheran, Catholic)
 - **Multilingual Support**: Full internationalization with English and Chinese language support
 - **Comprehensive Study Guides**: Generates detailed guides with verse-by-verse exegesis, discussion questions, and life applications
 - **Expert Commentary**: Draws from respected biblical commentaries and scholarship from StudyLight.org
+- **Server-Sent Events (SSE)**: Real-time progress updates with fallback to standard API
 - **Downloadable Content**: Export study guides as text files for offline use
 - **Group-Ready**: Designed specifically for cell group leaders and Bible study facilitators
+- **Progressive Web App**: PWA-ready with optimized meta tags and responsive design
 - **Analytics**: Integrated Vercel Analytics for usage tracking
-- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Production Ready**: Dual deployment support (Vercel serverless + Express backend)
 
 ## Project Structure
 
 ```
 bible-study-guide-generator/
 ├── api/                     # Vercel serverless API functions
-│   └── generate-study.js    # Main API endpoint (Vercel deployment)
+│   ├── generate-study.js    # Standard API endpoint (Vercel deployment)
+│   ├── generate-study-stream.js  # SSE endpoint for real-time progress
+│   └── health.js           # Health check endpoint
 ├── backend/                 # Express.js API server (local development)
-│   ├── server.js           # Main server file
+│   ├── server.js           # Main server with SSE support and progress tracking
 │   ├── services/           # Backend services
 │   │   ├── commentaryRetriever.js  # StudyLight.org scraping service
 │   │   └── commentaryMapping.js    # Theological denomination mappings
@@ -28,7 +33,7 @@ bible-study-guide-generator/
 │   └── .env.example        # Environment variables template
 ├── frontend/               # React frontend application
 │   ├── src/
-│   │   ├── BibleStudyCreator.jsx  # Main React component with i18n
+│   │   ├── BibleStudyCreator.jsx  # Main component with SSE progress tracking
 │   │   ├── main.jsx        # React entry point with Analytics
 │   │   ├── i18n.js         # Internationalization configuration
 │   │   └── index.css       # Tailwind CSS imports
@@ -36,7 +41,7 @@ bible-study-guide-generator/
 │   │   ├── favicon.svg     # App favicon
 │   │   ├── icon.svg        # App icon
 │   │   └── apple-touch-icon.svg  # iOS app icon
-│   ├── index.html          # HTML template with PWA meta tags
+│   ├── index.html          # HTML template with updated PWA meta tags
 │   ├── package.json        # Frontend dependencies with analytics
 │   ├── vite.config.js      # Vite configuration with proxy
 │   ├── tailwind.config.js  # Tailwind CSS configuration
@@ -112,8 +117,15 @@ The frontend will run on `http://localhost:3000`
 3. **Enter Bible Passage**: Input the passage you want to study (e.g., "Matthew 5:1-12", "John 3:16", "Romans 8:28-39")
    - Supports English book names (e.g., "Matthew", "John", "Romans")
    - Supports Chinese book names (e.g., "马太福音", "约翰福音", "罗马书")
-4. **Generate Study Guide**: Click the generate button to create a comprehensive study guide
-5. **Download**: Use the download button to save the study guide as a text file
+   - Supports Chinese abbreviations (e.g., "来 6:4-6" for Hebrews 6:4-6)
+4. **Generate Study Guide**: Click the generate button and watch real-time progress
+   - **Live Progress Tracking**: See each step as it happens:
+     - Parsing verse reference
+     - Retrieving commentaries from StudyLight.org
+     - Filtering available commentary content
+     - Generating study guide with Claude AI
+   - **Automatic Fallback**: If real-time updates fail, automatically switches to standard mode
+5. **Download**: Use the download button to save the complete study guide as a text file
 
 ### Language Support
 - **English**: Full interface and study guide generation in English
@@ -122,8 +134,28 @@ The frontend will run on `http://localhost:3000`
 
 ## API Endpoints
 
+### GET /api/generate-study-stream (SSE)
+**NEW**: Real-time study guide generation with Server-Sent Events for live progress tracking.
+
+**Query Parameters:**
+- `verseInput`: Bible passage (e.g., "John 3:16")
+- `selectedTheology`: Theological stance ID
+- `theologicalStances`: JSON-encoded array of theological stances
+- `language`: Language code ("en" or "zh")
+
+**SSE Response Stream:**
+```javascript
+// Progress updates
+data: {"type": "progress", "step": "parsing", "message": "Parsing verse reference..."}
+data: {"type": "progress", "step": "retrieving_commentaries", "message": "Retrieving commentaries..."}
+data: {"type": "progress", "step": "generating_guide", "message": "Generating with Claude AI..."}
+
+// Final result
+data: {"type": "complete", "data": {...}, "message": "Study guide generated successfully!"}
+```
+
 ### POST /api/generate-study
-Generates a Bible study guide based on the provided passage and theological perspective.
+Standard API endpoint for study guide generation (fallback when SSE fails).
 
 **Request Body:**
 ```json
@@ -145,7 +177,8 @@ Generates a Bible study guide based on the provided passage and theological pers
   "exegesis": [...],
   "discussionQuestions": [...],
   "lifeApplication": {...},
-  "additionalResources": {...}
+  "additionalResources": {...},
+  "commentariesUsed": [...]
 }
 ```
 
@@ -166,31 +199,58 @@ Health check endpoint to verify the API is running.
 - React 18 with React Router
 - Vite (build tool and development server)
 - Tailwind CSS (utility-first styling)
-- Lucide React (icon library)
+- Lucide React (icon library with real-time progress indicators)
 - i18next (internationalization framework)
 - react-i18next (React integration for i18n)
+- Server-Sent Events (EventSource API for real-time updates)
 - Vercel Analytics (usage tracking)
 
 ### Backend
-- Express.js (web framework for local development)
-- Vercel Serverless Functions (production API)
+- Express.js with SSE support (local development)
+- Vercel Serverless Functions (production API with SSE endpoint)
 - Anthropic SDK (Claude AI integration)
 - Axios + Cheerio (web scraping for commentaries)
 - CORS (cross-origin resource sharing)
 - dotenv (environment variables)
+- Real-time progress streaming
 
 ### Services & Integrations
 - StudyLight.org (biblical commentary retrieval)
-- Claude AI (study guide generation)
+- Claude AI (study guide generation with enhanced prompts)
 - Vercel (hosting and serverless functions)
 - Language Detection (automatic locale detection)
+- Progressive Web App (PWA) capabilities
+
+## Progress Tracking Feature
+
+The application now includes **real-time progress tracking** that shows users exactly what's happening during study guide generation:
+
+### Progress Steps
+1. **Parsing** - Validates and parses the Bible verse reference
+2. **Commentary Retrieval** - Fetches relevant commentaries from StudyLight.org
+3. **Commentary Filtering** - Filters commentaries that contain content for the requested verses
+4. **AI Generation** - Generates the study guide using Claude AI
+5. **Completion** - Finalizes and delivers the study guide
+
+### Technical Implementation
+- **Server-Sent Events (SSE)**: Primary method for real-time updates
+- **Automatic Fallback**: Gracefully falls back to standard API if SSE fails
+- **Bilingual Messages**: Progress messages in both English and Chinese
+- **Visual Feedback**: Icons and animations indicate current step status
+- **Error Handling**: Robust error handling with user-friendly messages
+
+### User Experience Benefits
+- **Transparency**: Users see exactly what's happening behind the scenes
+- **Engagement**: Real-time updates keep users engaged during longer processes
+- **Trust**: Showing commentary sources builds confidence in the results
+- **Feedback**: Clear indication of progress and any issues encountered
 
 ## Development
 
 ### Backend Development
 ```bash
 cd backend
-npm run dev  # Uses nodemon for auto-restart
+npm run dev  # Uses nodemon for auto-restart with SSE support
 ```
 
 ### Frontend Development
