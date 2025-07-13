@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Book, Search, Download, Users, Cross, MessageSquare, Globe } from 'lucide-react';
+import { Book, Search, Download, Users, Cross, MessageSquare, Globe, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 // Use relative path for API which works for both development (with Vite proxy) and production (Vercel)
@@ -13,6 +13,58 @@ const BibleStudyCreator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [studyGuide, setStudyGuide] = useState(null);
   const [error, setError] = useState('');
+  const [progressSteps, setProgressSteps] = useState([]);
+  const [currentStep, setCurrentStep] = useState(null);
+
+  // Progress step component
+  const ProgressStep = ({ step, isActive, isCompleted }) => {
+    const getStepIcon = () => {
+      if (isCompleted) return <CheckCircle className="w-5 h-5 text-green-600" />;
+      if (isActive) return <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />;
+      return <Clock className="w-5 h-5 text-gray-400" />;
+    };
+
+    const getStepStyle = () => {
+      if (isCompleted) return 'border-green-200 bg-green-50';
+      if (isActive) return 'border-blue-200 bg-blue-50';
+      return 'border-gray-200 bg-gray-50';
+    };
+
+    return (
+      <div className={`p-3 rounded-lg border ${getStepStyle()} transition-all duration-300`}>
+        <div className="flex items-start gap-3">
+          {getStepIcon()}
+          <div className="flex-1">
+            <p className={`text-sm font-medium ${isCompleted ? 'text-green-800' : isActive ? 'text-blue-800' : 'text-gray-600'}`}>
+              {step.message}
+            </p>
+            {step.details && (
+              <div className="mt-2 text-xs text-gray-600">
+                {step.details.successful && (
+                  <div>
+                    <span className="font-medium">✓ Retrieved:</span> {step.details.successful.map(c => c.name).join(', ')}
+                  </div>
+                )}
+                {step.details.failed && step.details.failed.length > 0 && (
+                  <div className="text-red-600">
+                    <span className="font-medium">✗ Failed:</span> {step.details.failed.join(', ')}
+                  </div>
+                )}
+                {step.details.usable && (
+                  <div>
+                    <span className="font-medium">📖 Usable:</span> {step.details.usable.join(', ')}
+                  </div>
+                )}
+              </div>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              {step.timestamp.toLocaleTimeString()}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Function to translate error messages from backend
   const translateError = (errorMessage) => {
@@ -74,58 +126,79 @@ const BibleStudyCreator = () => {
     setIsGenerating(true);
     setError('');
     setStudyGuide(null);
+    setProgressSteps([]);
+    setCurrentStep(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/generate-study`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          verseInput,
-          selectedTheology,
-          theologicalStances,
-          language: i18n.language
-        }),
+      const urlParams = new URLSearchParams({
+        verseInput,
+        selectedTheology,
+        theologicalStances: JSON.stringify(theologicalStances),
+        language: i18n.language
       });
 
-      if (!response.ok) {
-        let errorMessage = 'Failed to generate study guide';
+      const eventSource = new EventSource(`${API_BASE_URL}/generate-study-stream?${urlParams}`);
+
+      eventSource.onmessage = (event) => {
         try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (jsonError) {
-          // If response is not JSON, try to get text
-          try {
-            const errorText = await response.text();
-            errorMessage = errorText || `Server error: ${response.status}`;
-          } catch {
-            errorMessage = `Server error: ${response.status} ${response.statusText}`;
+          const data = JSON.parse(event.data);
+          
+          if (data.error) {
+            setError(translateError(data.error) || t('errors.serverError'));
+            eventSource.close();
+            setIsGenerating(false);
+            return;
           }
+
+          if (data.type === 'progress') {
+            const newStep = {
+              id: data.step,
+              message: data.message,
+              timestamp: new Date(),
+              details: data.details || null
+            };
+            
+            setProgressSteps(prevSteps => {
+              const existingIndex = prevSteps.findIndex(step => step.id === data.step);
+              if (existingIndex >= 0) {
+                const updatedSteps = [...prevSteps];
+                updatedSteps[existingIndex] = newStep;
+                return updatedSteps;
+              } else {
+                return [...prevSteps, newStep];
+              }
+            });
+            
+            setCurrentStep(data.step);
+          } else if (data.type === 'complete') {
+            setStudyGuide(data.data);
+            setCurrentStep('completed');
+            eventSource.close();
+            setIsGenerating(false);
+          }
+        } catch (parseError) {
+          console.error('Failed to parse SSE data:', event.data);
+          setError(t('errors.serverError'));
+          eventSource.close();
+          setIsGenerating(false);
         }
-        throw new Error(errorMessage);
-      }
+      };
 
-      // Check if response has content
-      const responseText = await response.text();
-      if (!responseText) {
-        throw new Error('Empty response from server');
-      }
+      eventSource.onerror = (error) => {
+        console.error('SSE connection error:', error);
+        setError(t('errors.serverError'));
+        eventSource.close();
+        setIsGenerating(false);
+      };
 
-      // Try to parse JSON
-      let studyData;
-      try {
-        studyData = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('Failed to parse response:', responseText);
-        throw new Error('Invalid response format from server');
-      }
-      
-      setStudyGuide(studyData);
+      // Cleanup function
+      return () => {
+        eventSource.close();
+      };
+
     } catch (error) {
-      console.error('Error generating study guide:', error);
+      console.error('Error setting up SSE:', error);
       setError(translateError(error.message) || t('errors.serverError'));
-    } finally {
       setIsGenerating(false);
     }
   };
@@ -351,8 +424,8 @@ ${t('downloadHeaders.generatedBy')}`;
             >
               {isGenerating ? (
                 <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  {t('generating')}
+                  <Search className="w-5 h-5 opacity-50" />
+                  {i18n.language === 'zh' ? '正在生成...' : 'Generating...'}
                 </>
               ) : (
                 <>
@@ -393,8 +466,43 @@ ${t('downloadHeaders.generatedBy')}`;
               </div>
             )}
 
+            {isGenerating && (
+              <div className="space-y-4">
+                <div className="text-center py-6">
+                  <Loader2 className="w-8 h-8 mx-auto mb-4 text-indigo-600 animate-spin" />
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                    {i18n.language === 'zh' ? '正在生成学习指南...' : 'Generating Study Guide...'}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {i18n.language === 'zh' ? '请查看下方的详细进度信息' : 'See detailed progress information below'}
+                  </p>
+                </div>
+                
+                {progressSteps.length > 0 && (
+                  <div className="space-y-3 max-h-[calc(100vh-20rem)] overflow-y-auto">
+                    {progressSteps.map((step, index) => {
+                      const stepOrder = ['parsing', 'parsed', 'retrieving_commentaries', 'commentaries_retrieved', 'filtering_commentaries', 'commentaries_filtered', 'generating_guide', 'completed'];
+                      const isActive = currentStep === step.id;
+                      const currentIndex = stepOrder.indexOf(currentStep);
+                      const stepIndex = stepOrder.indexOf(step.id);
+                      const isCompleted = stepIndex < currentIndex || currentStep === 'completed';
+                      
+                      return (
+                        <ProgressStep 
+                          key={step.id} 
+                          step={step} 
+                          isActive={isActive}
+                          isCompleted={isCompleted}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {studyGuide && (
-              <div className="space-y-6 max-h-96 overflow-y-auto">
+              <div className="space-y-6 max-h-[calc(100vh-16rem)] overflow-y-auto">
                 <div className="text-center border-b pb-4">
                   <h3 className="text-xl font-bold text-gray-800">{typeof studyGuide.title === 'string' ? studyGuide.title : 'Study Guide'}</h3>
                   <p className="text-indigo-600 font-medium">{typeof studyGuide.passage === 'string' ? studyGuide.passage : ''}</p>
