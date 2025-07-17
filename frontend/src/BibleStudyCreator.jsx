@@ -568,70 +568,191 @@ ${t('downloadHeaders.generatedBy')}`;
             )}
 
             {studyGuide && (
-              <div className="space-y-6 max-h-[calc(100vh-16rem)] overflow-y-auto">
-                <div className="text-center border-b pb-4">
-                  <h3 className="text-xl font-bold text-gray-800">{typeof studyGuide.title === 'string' ? studyGuide.title : 'Study Guide'}</h3>
-                  <p className="text-indigo-600 font-medium">{typeof studyGuide.passage === 'string' ? studyGuide.passage : ''}</p>
-                  <p className="text-sm text-gray-600">{typeof studyGuide.theology === 'string' ? studyGuide.theology : ''} {t('perspective')}</p>
+              <div className="space-y-8 max-h-[calc(100vh-16rem)] overflow-y-auto pr-2">
+                {/* Header Section */}
+                <div className="text-center bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-6 shadow-sm">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">{typeof studyGuide.title === 'string' ? studyGuide.title : 'Study Guide'}</h3>
+                  <p className="text-lg text-indigo-700 font-semibold mb-1">{typeof studyGuide.passage === 'string' ? studyGuide.passage : ''}</p>
+                  <p className="text-sm text-gray-600 font-medium">{typeof studyGuide.theology === 'string' ? studyGuide.theology : ''} {t('perspective')}</p>
                 </div>
 
-                <div>
-                  <h4 className="font-semibold text-gray-800 mb-2">{t('overview')}</h4>
-                  <div className="text-sm text-gray-700 space-y-2">
-                    <p><strong>{t('introduction')}</strong> {studyGuide.overview && typeof studyGuide.overview.introduction === 'string' ? studyGuide.overview.introduction : 'No introduction available'}</p>
-                    <p><strong>{t('historicalContext')}</strong> {studyGuide.overview && typeof studyGuide.overview.historicalContext === 'string' ? studyGuide.overview.historicalContext : 'No historical context available'}</p>
-                    <p><strong>{t('literaryContext')}</strong> {studyGuide.overview && typeof studyGuide.overview.literaryContext === 'string' ? studyGuide.overview.literaryContext : 'No literary context available'}</p>
+                {/* Overview Section */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="w-1 h-6 bg-indigo-600 rounded"></div>
+                    {t('overview')}
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <h5 className="font-semibold text-gray-800 mb-2">{t('introduction')}</h5>
+                      <p className="text-gray-700 leading-relaxed">
+                        {studyGuide.overview && typeof studyGuide.overview.introduction === 'string' ? studyGuide.overview.introduction : 'No introduction available'}
+                      </p>
+                    </div>
+                    <div>
+                      <h5 className="font-semibold text-gray-800 mb-2">{t('historicalContext')}</h5>
+                      <p className="text-gray-700 leading-relaxed">
+                        {studyGuide.overview && typeof studyGuide.overview.historicalContext === 'string' ? studyGuide.overview.historicalContext : 'No historical context available'}
+                      </p>
+                    </div>
+                    <div>
+                      <h5 className="font-semibold text-gray-800 mb-2">{t('literaryContext')}</h5>
+                      <p className="text-gray-700 leading-relaxed">
+                        {studyGuide.overview && typeof studyGuide.overview.literaryContext === 'string' ? studyGuide.overview.literaryContext : 'No literary context available'}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <h4 className="font-semibold text-gray-800 mb-2">{t('exegesis')}</h4>
-                  <div className="space-y-3">
-                    {studyGuide.exegesis && Array.isArray(studyGuide.exegesis) ? studyGuide.exegesis.slice(0, 2).map((verse, index) => (
-                      <div key={index} className="bg-gray-50 p-3 rounded">
-                        <p className="font-medium text-indigo-600">{typeof verse.verse === 'string' ? verse.verse : `Verse ${index + 1}`}</p>
-                        <p className="text-sm text-gray-700 mt-1">{typeof verse.explanation === 'string' ? verse.explanation.substring(0, 200) + '...' : 'No explanation available'}</p>
+                {/* Verse-by-Verse Exegesis */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="w-1 h-6 bg-indigo-600 rounded"></div>
+                    {t('exegesis')}
+                  </h4>
+                  <div className="space-y-6">
+                    {studyGuide.exegesis && Array.isArray(studyGuide.exegesis) ? studyGuide.exegesis.map((verse, index) => (
+                      <div key={index} className="border-l-4 border-indigo-200 pl-4 py-2">
+                        <div className="flex items-baseline gap-2 mb-3">
+                          <span className="font-bold text-indigo-700 text-lg">{typeof verse.verse === 'string' ? verse.verse : `Verse ${index + 1}`}</span>
+                        </div>
+                        {verse.text && (
+                          <blockquote className="italic text-gray-600 mb-3 bg-gray-50 p-3 rounded">
+                            "{typeof verse.text === 'string' ? verse.text : ''}"
+                          </blockquote>
+                        )}
+                        <p className="text-gray-700 leading-relaxed mb-3">
+                          {typeof verse.explanation === 'string' ? verse.explanation : 'No explanation available'}
+                        </p>
+                        {verse.keyInsights && Array.isArray(verse.keyInsights) && verse.keyInsights.length > 0 && (
+                          <div className="mb-3">
+                            <h6 className="font-semibold text-gray-800 mb-2">{t('keyInsights')}</h6>
+                            <ul className="list-disc list-inside space-y-1">
+                              {verse.keyInsights.map((insight, i) => (
+                                <li key={i} className="text-gray-700">{insight}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {verse.crossReferences && Array.isArray(verse.crossReferences) && verse.crossReferences.length > 0 && (
+                          <div>
+                            <h6 className="font-semibold text-gray-800 mb-1">{t('crossReferences')}</h6>
+                            <p className="text-sm text-gray-600">{verse.crossReferences.join(' • ')}</p>
+                          </div>
+                        )}
                       </div>
-                    )) : <p className="text-sm text-gray-500">No exegesis available</p>}
-                    {studyGuide.exegesis && Array.isArray(studyGuide.exegesis) && studyGuide.exegesis.length > 2 && (
-                      <p className="text-sm text-gray-500 italic">
-                        {t('moreVerses', { count: studyGuide.exegesis.length - 2 })}
-                      </p>
-                    )}
+                    )) : <p className="text-gray-500">No exegesis available</p>}
                   </div>
                 </div>
 
-                <div>
-                  <h4 className="font-semibold text-gray-800 mb-2">{t('discussionQuestions')}</h4>
-                  <div className="space-y-2">
-                    {studyGuide.discussionQuestions && Array.isArray(studyGuide.discussionQuestions) ? studyGuide.discussionQuestions.slice(0, 3).map((question, index) => (
-                      <p key={index} className="text-sm text-gray-700">
-                        {index + 1}. {typeof question === 'string' ? question : 'Discussion question'}
-                      </p>
-                    )) : <p className="text-sm text-gray-500">No discussion questions available</p>}
-                    {studyGuide.discussionQuestions && Array.isArray(studyGuide.discussionQuestions) && studyGuide.discussionQuestions.length > 3 && (
-                      <p className="text-sm text-gray-500 italic">
-                        {t('moreQuestions', { count: studyGuide.discussionQuestions.length - 3 })}
-                      </p>
-                    )}
+                {/* Discussion Questions */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="w-1 h-6 bg-indigo-600 rounded"></div>
+                    {t('discussionQuestions')}
+                  </h4>
+                  <div className="space-y-3">
+                    {studyGuide.discussionQuestions && Array.isArray(studyGuide.discussionQuestions) ? studyGuide.discussionQuestions.map((question, index) => (
+                      <div key={index} className="flex gap-3">
+                        <span className="font-bold text-indigo-600 flex-shrink-0">{index + 1}.</span>
+                        <p className="text-gray-700 leading-relaxed">{typeof question === 'string' ? question : 'Discussion question'}</p>
+                      </div>
+                    )) : <p className="text-gray-500">No discussion questions available</p>}
                   </div>
                 </div>
 
+                {/* Life Application */}
+                {studyGuide.lifeApplication && (
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <div className="w-1 h-6 bg-indigo-600 rounded"></div>
+                      {t('lifeApplication')}
+                    </h4>
+                    <div className="space-y-4">
+                      {studyGuide.lifeApplication.practicalApplications && Array.isArray(studyGuide.lifeApplication.practicalApplications) && studyGuide.lifeApplication.practicalApplications.length > 0 && (
+                        <div>
+                          <h5 className="font-semibold text-gray-800 mb-2">{t('practicalApplications')}</h5>
+                          <ul className="list-disc list-inside space-y-2">
+                            {studyGuide.lifeApplication.practicalApplications.map((app, i) => (
+                              <li key={i} className="text-gray-700">{app}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {studyGuide.lifeApplication.reflectionPoints && Array.isArray(studyGuide.lifeApplication.reflectionPoints) && studyGuide.lifeApplication.reflectionPoints.length > 0 && (
+                        <div>
+                          <h5 className="font-semibold text-gray-800 mb-2">{t('reflectionPoints')}</h5>
+                          <ul className="list-disc list-inside space-y-2">
+                            {studyGuide.lifeApplication.reflectionPoints.map((point, i) => (
+                              <li key={i} className="text-gray-700">{point}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {studyGuide.lifeApplication.actionSteps && Array.isArray(studyGuide.lifeApplication.actionSteps) && studyGuide.lifeApplication.actionSteps.length > 0 && (
+                        <div>
+                          <h5 className="font-semibold text-gray-800 mb-2">{t('actionSteps')}</h5>
+                          <ol className="list-decimal list-inside space-y-2">
+                            {studyGuide.lifeApplication.actionSteps.map((step, i) => (
+                              <li key={i} className="text-gray-700">{step}</li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional Resources */}
+                {studyGuide.additionalResources && (
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <div className="w-1 h-6 bg-indigo-600 rounded"></div>
+                      {t('additionalResources')}
+                    </h4>
+                    <div className="space-y-4">
+                      {studyGuide.additionalResources.crossReferences && Array.isArray(studyGuide.additionalResources.crossReferences) && studyGuide.additionalResources.crossReferences.length > 0 && (
+                        <div>
+                          <h5 className="font-semibold text-gray-800 mb-2">{t('crossReferences')}</h5>
+                          <p className="text-gray-700">{studyGuide.additionalResources.crossReferences.join(' • ')}</p>
+                        </div>
+                      )}
+                      {studyGuide.additionalResources.memoryVerses && Array.isArray(studyGuide.additionalResources.memoryVerses) && studyGuide.additionalResources.memoryVerses.length > 0 && (
+                        <div>
+                          <h5 className="font-semibold text-gray-800 mb-2">{t('memoryVerses')}</h5>
+                          <p className="text-gray-700">{studyGuide.additionalResources.memoryVerses.join(' • ')}</p>
+                        </div>
+                      )}
+                      {studyGuide.additionalResources.prayerPoints && Array.isArray(studyGuide.additionalResources.prayerPoints) && studyGuide.additionalResources.prayerPoints.length > 0 && (
+                        <div>
+                          <h5 className="font-semibold text-gray-800 mb-2">{t('prayerPoints')}</h5>
+                          <ul className="list-disc list-inside space-y-2">
+                            {studyGuide.additionalResources.prayerPoints.map((point, i) => (
+                              <li key={i} className="text-gray-700">{point}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Commentaries Used */}
                 {studyGuide.commentariesUsed && Array.isArray(studyGuide.commentariesUsed) && studyGuide.commentariesUsed.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold text-gray-800 mb-2">{t('commentariesUsed')}</h4>
-                    <div className="space-y-1">
+                  <div className="bg-gray-50 rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h4 className="text-lg font-bold text-gray-900 mb-4">{t('commentariesUsed')}</h4>
+                    <div className="space-y-3">
                       {studyGuide.commentariesUsed.map((commentary, index) => (
-                        <div key={index} className="text-sm text-gray-700">
-                          <p>
-                            <span className="font-medium text-indigo-600">{typeof commentary.citation === 'string' ? commentary.citation : `[${index + 1}]`}</span> {typeof commentary.name === 'string' ? commentary.name : 'Commentary'} by {typeof commentary.author === 'string' ? commentary.author : 'Unknown'}
+                        <div key={index} className="bg-white p-3 rounded border border-gray-200">
+                          <p className="text-gray-700">
+                            <span className="font-semibold text-indigo-600">{typeof commentary.citation === 'string' ? commentary.citation : `[${index + 1}]`}</span>{' '}
+                            <span className="font-medium">{typeof commentary.name === 'string' ? commentary.name : 'Commentary'}</span>{' '}
+                            by <span className="italic">{typeof commentary.author === 'string' ? commentary.author : 'Unknown'}</span>
                           </p>
                           {commentary.url && typeof commentary.url === 'string' && (
-                            <p className="text-xs text-blue-600 ml-6">
-                              <a href={commentary.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                {commentary.url}
-                              </a>
-                            </p>
+                            <a href={commentary.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline mt-1 block">
+                              View source →
+                            </a>
                           )}
                         </div>
                       ))}
@@ -639,10 +760,18 @@ ${t('downloadHeaders.generatedBy')}`;
                   </div>
                 )}
 
-                <div className="text-center pt-4 border-t">
-                  <p className="text-sm text-gray-500">
+                {/* Download Prompt */}
+                <div className="text-center py-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg">
+                  <p className="text-gray-700 mb-3">
                     {t('downloadPrompt')}
                   </p>
+                  <button
+                    onClick={downloadStudyGuide}
+                    className="bg-green-600 text-white py-2 px-6 rounded-lg font-medium hover:bg-green-700 transition-colors inline-flex items-center gap-2"
+                  >
+                    <Download className="w-5 h-5" />
+                    {t('download')}
+                  </button>
                 </div>
               </div>
             )}
