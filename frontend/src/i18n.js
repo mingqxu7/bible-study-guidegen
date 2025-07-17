@@ -26,7 +26,7 @@ const resources = {
       "exegesis": "Verse-by-Verse Exegesis",
       "discussionQuestions": "Discussion Questions",
       "commentariesUsed": "Commentaries Used",
-      "downloadPrompt": "Download the complete study guide for full content",
+      "downloadPrompt": "Export the complete study guide as a PDF document",
       "features": {
         "theological": "Theologically Aligned",
         "theologicalDesc": "Choose from major theological perspectives to ensure your study guide aligns with your church's beliefs",
@@ -125,7 +125,7 @@ const resources = {
       "exegesis": "逐节解经",
       "discussionQuestions": "讨论问题",
       "commentariesUsed": "使用的注释书",
-      "downloadPrompt": "下载完整的学习指南以获取全部内容",
+      "downloadPrompt": "将完整的学习指南导出为PDF文档",
       "features": {
         "theological": "神学立场",
         "theologicalDesc": "从主要神学立场中选择，确保您的学习指南与您教会的信仰一致",

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Book, Search, Download, Users, Cross, MessageSquare, Globe, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -15,6 +15,7 @@ const BibleStudyCreator = () => {
   const [error, setError] = useState('');
   const [progressSteps, setProgressSteps] = useState([]);
   const [currentStep, setCurrentStep] = useState(null);
+  const studyGuideRef = useRef(null);
 
   // Progress step component
   const ProgressStep = ({ step, isActive, isCompleted }) => {
@@ -269,133 +270,343 @@ const BibleStudyCreator = () => {
     }
   };
 
-  const downloadStudyGuide = () => {
+  const exportToPDF = () => {
     if (!studyGuide) return;
 
-    const safeString = (value) => typeof value === 'string' ? value : '';
-    const safeArray = (value) => Array.isArray(value) ? value : [];
-
-    const content = `${t('downloadHeaders.title')}
-${safeString(studyGuide.title)}
-${t('downloadHeaders.passage')} ${safeString(studyGuide.passage)}
-${t('downloadHeaders.theology')} ${safeString(studyGuide.theology)}
-
-===========================================
-
-${t('downloadHeaders.overview')}
-
-${t('downloadHeaders.introduction')}
-${studyGuide.overview ? safeString(studyGuide.overview.introduction) : ''}
-
-${t('downloadHeaders.historicalContext')}
-${studyGuide.overview ? safeString(studyGuide.overview.historicalContext) : ''}
-
-${t('downloadHeaders.literaryContext')}
-${studyGuide.overview ? safeString(studyGuide.overview.literaryContext) : ''}
-
-===========================================
-
-${t('downloadHeaders.exegesis')}
-
-${safeArray(studyGuide.exegesis).map(verse => `
-${safeString(verse.verse)}: ${safeString(verse.text)}
-
-${t('downloadHeaders.explanation')}
-${safeString(verse.explanation)}
-
-${t('downloadHeaders.keyInsights')}
-${safeArray(verse.keyInsights).map(insight => `• ${safeString(insight)}`).join('\n')}
-
-${t('downloadHeaders.crossReferences')}
-${safeArray(verse.crossReferences).map(ref => safeString(ref)).join(', ')}
-`).join('\n---\n')}
-
-===========================================
-
-${t('downloadHeaders.discussionQuestions')}
-
-${safeArray(studyGuide.discussionQuestions).map((q, i) => `${i + 1}. ${safeString(q)}`).join('\n\n')}
-
-===========================================
-
-${t('downloadHeaders.lifeApplication')}
-
-${t('downloadHeaders.practicalApplications')}
-${studyGuide.lifeApplication ? safeArray(studyGuide.lifeApplication.practicalApplications).map(app => `• ${safeString(app)}`).join('\n') : ''}
-
-${t('downloadHeaders.reflectionPoints')}
-${studyGuide.lifeApplication ? safeArray(studyGuide.lifeApplication.reflectionPoints).map(point => `• ${safeString(point)}`).join('\n') : ''}
-
-${t('downloadHeaders.actionSteps')}
-${studyGuide.lifeApplication ? safeArray(studyGuide.lifeApplication.actionSteps).map(step => `• ${safeString(step)}`).join('\n') : ''}
-
-===========================================
-
-${t('downloadHeaders.additionalResources')}
-
-${t('downloadHeaders.crossReferences')}
-${studyGuide.additionalResources ? safeArray(studyGuide.additionalResources.crossReferences).map(ref => safeString(ref)).join(', ') : ''}
-
-${t('downloadHeaders.memoryVerses')}
-${studyGuide.additionalResources ? safeArray(studyGuide.additionalResources.memoryVerses).map(verse => safeString(verse)).join(', ') : ''}
-
-${t('downloadHeaders.prayerPoints')}
-${studyGuide.additionalResources ? safeArray(studyGuide.additionalResources.prayerPoints).map(point => `• ${safeString(point)}`).join('\n') : ''}
-
-===========================================
-
-${t('downloadHeaders.commentariesUsed')}
-
-${studyGuide.commentariesUsed && Array.isArray(studyGuide.commentariesUsed) && studyGuide.commentariesUsed.length > 0 
-  ? studyGuide.commentariesUsed.map(c => `${safeString(c.citation)} ${safeString(c.name)} by ${safeString(c.author)}${c.url ? '\n    ' + safeString(c.url) : ''}`).join('\n\n')
-  : 'No specific commentaries cited - general theological knowledge used'}
-
-===========================================
-${t('downloadHeaders.generatedBy')}`;
-
     try {
-      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      // Create filename: use passage reference with book name for both languages
-      let baseFilename;
+      // Helper functions
+      const safeString = (value) => typeof value === 'string' ? value : '';
+      const safeArray = (value) => Array.isArray(value) ? value : [];
+
+      // Create filename for the window title
       const passageText = studyGuide.passage || verseInput;
+      const baseFilename = passageText
+        .replace(/[:\s]/g, '_')
+        .replace(/[^\w\u4e00-\u9fff_-]/g, '')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '');
       
-      // Clean the passage text to make it filename-safe
-      baseFilename = passageText
-        .replace(/[:\s]/g, '_')           // Replace colons and spaces with underscores
-        .replace(/[^\w\u4e00-\u9fff_-]/g, '')  // Keep only alphanumeric, Chinese chars, underscores, hyphens
-        .replace(/_+/g, '_')             // Replace multiple underscores with single
-        .replace(/^_|_$/g, '');          // Remove leading/trailing underscores
-      
-      const studyGuideText = i18n.language.startsWith('zh') ? '学习指南' : 'Study_Guide';
-      const filename = `${baseFilename}_${studyGuideText}.txt`;
-      
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = filename;
-      
-      document.body.appendChild(a);
-      a.click();
-      
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 100);
-      
-    } catch (error) {
-      console.error('Download failed:', error);
-      
-      try {
-        navigator.clipboard.writeText(content).then(() => {
-          alert('Download failed, but the study guide has been copied to your clipboard. You can paste it into a text editor and save it manually.');
-        });
-      } catch (clipboardError) {
-        const newWindow = window.open('', '_blank');
-        newWindow.document.write(`<pre style="font-family: monospace; white-space: pre-wrap; padding: 20px;">${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`);
-        newWindow.document.title = 'Bible Study Guide';
-        alert('Download failed. The study guide is displayed in a new window. You can copy and paste the content to save it.');
+      const studyGuideText = i18n.language.startsWith('zh') ? '学习指南' : 'Study Guide';
+      const documentTitle = `${baseFilename} ${studyGuideText}`;
+
+      // Build complete HTML document
+      let htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>${documentTitle}</title>
+          <style>
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none !important; }
+              .page-break { page-break-before: always; }
+            }
+            body {
+              font-family: Arial, sans-serif;
+              font-size: 12px;
+              line-height: 1.5;
+              color: #333;
+              max-width: 800px;
+              margin: 0 auto;
+              padding: 20px;
+              background: white;
+            }
+            h1 { font-size: 24px; color: #2c3e50; margin: 0 0 10px 0; }
+            h2 { font-size: 20px; color: #2c3e50; margin: 20px 0 15px 0; border-bottom: 2px solid #3498db; padding-bottom: 5px; }
+            h3 { font-size: 16px; color: #34495e; margin: 15px 0 8px 0; }
+            h4 { font-size: 14px; color: #34495e; margin: 10px 0 5px 0; font-weight: bold; }
+            p { margin: 0 0 10px 0; text-align: justify; }
+            ul, ol { margin: 0; padding-left: 20px; }
+            li { margin-bottom: 5px; }
+            blockquote { 
+              margin: 0 0 10px 0; 
+              padding: 10px; 
+              background: #f8f9fa; 
+              border-left: 3px solid #bdc3c7; 
+              font-style: italic; 
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 30px; 
+              padding: 20px; 
+              background: #f8f9fa; 
+              border-radius: 8px; 
+            }
+            .section { 
+              margin-bottom: 30px; 
+              padding: 20px; 
+              border: 1px solid #e0e0e0; 
+              border-radius: 8px; 
+            }
+            .verse-block { 
+              margin-bottom: 20px; 
+              padding-left: 15px; 
+              border-left: 3px solid #3498db; 
+            }
+            .verse-title { 
+              font-size: 18px; 
+              color: #2980b9; 
+              font-weight: bold; 
+              margin: 0 0 10px 0; 
+            }
+            .question-number { 
+              color: #2980b9; 
+              font-weight: bold; 
+            }
+            .commentary { 
+              margin-bottom: 10px; 
+              padding: 10px; 
+              background: white; 
+              border-radius: 4px; 
+            }
+            .commentary-section { 
+              background: #f8f9fa; 
+            }
+            .footer { 
+              text-align: center; 
+              margin-top: 40px; 
+              padding: 20px; 
+              background: #f8f9fa; 
+              border-radius: 8px; 
+              font-size: 12px; 
+              color: #7f8c8d; 
+            }
+            .print-button {
+              position: fixed;
+              top: 20px;
+              right: 20px;
+              background: #3498db;
+              color: white;
+              padding: 10px 20px;
+              border: none;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 14px;
+              z-index: 1000;
+            }
+            .print-button:hover {
+              background: #2980b9;
+            }
+            @media print {
+              .print-button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <button class="print-button no-print" onclick="window.print()">
+            ${i18n.language === 'zh' ? '打印/保存为PDF' : 'Print/Save as PDF'}
+          </button>
+          
+          <div class="header">
+            <h1>${safeString(studyGuide.title)}</h1>
+            <p style="font-size: 18px; color: #3498db; font-weight: bold; margin: 0 0 5px 0;">${safeString(studyGuide.passage)}</p>
+            <p style="font-size: 14px; color: #7f8c8d; margin: 0;">${safeString(studyGuide.theology)} ${t('perspective')}</p>
+          </div>
+      `;
+
+      // Overview Section
+      if (studyGuide.overview) {
+        htmlContent += `
+          <div class="section">
+            <h2>${t('overview')}</h2>
+            <div style="margin-bottom: 15px;">
+              <h3>${t('introduction')}</h3>
+              <p>${safeString(studyGuide.overview.introduction)}</p>
+            </div>
+            <div style="margin-bottom: 15px;">
+              <h3>${t('historicalContext')}</h3>
+              <p>${safeString(studyGuide.overview.historicalContext)}</p>
+            </div>
+            <div>
+              <h3>${t('literaryContext')}</h3>
+              <p>${safeString(studyGuide.overview.literaryContext)}</p>
+            </div>
+          </div>
+        `;
       }
+
+      // Exegesis Section
+      if (studyGuide.exegesis && Array.isArray(studyGuide.exegesis)) {
+        htmlContent += `<div class="section"><h2>${t('exegesis')}</h2>`;
+        
+        studyGuide.exegesis.forEach(verse => {
+          htmlContent += `
+            <div class="verse-block">
+              <div class="verse-title">${safeString(verse.verse)}</div>
+              ${verse.text ? `<blockquote>"${safeString(verse.text)}"</blockquote>` : ''}
+              <p>${safeString(verse.explanation)}</p>
+          `;
+          
+          if (verse.keyInsights && Array.isArray(verse.keyInsights) && verse.keyInsights.length > 0) {
+            htmlContent += `
+              <div style="margin-bottom: 10px;">
+                <h4>${t('keyInsights')}</h4>
+                <ul>
+            `;
+            verse.keyInsights.forEach(insight => {
+              htmlContent += `<li>${safeString(insight)}</li>`;
+            });
+            htmlContent += `</ul></div>`;
+          }
+          
+          if (verse.crossReferences && Array.isArray(verse.crossReferences) && verse.crossReferences.length > 0) {
+            htmlContent += `
+              <div>
+                <h4>${t('crossReferences')}</h4>
+                <p style="font-size: 12px; color: #7f8c8d;">${verse.crossReferences.join(' • ')}</p>
+              </div>
+            `;
+          }
+          
+          htmlContent += `</div>`;
+        });
+        
+        htmlContent += `</div>`;
+      }
+
+      // Discussion Questions
+      if (studyGuide.discussionQuestions && Array.isArray(studyGuide.discussionQuestions)) {
+        htmlContent += `<div class="section"><h2>${t('discussionQuestions')}</h2>`;
+        
+        studyGuide.discussionQuestions.forEach((question, index) => {
+          htmlContent += `
+            <div style="margin-bottom: 10px;">
+              <span class="question-number">${index + 1}.</span> ${safeString(question)}
+            </div>
+          `;
+        });
+        
+        htmlContent += `</div>`;
+      }
+
+      // Life Application
+      if (studyGuide.lifeApplication) {
+        htmlContent += `<div class="section"><h2>${t('lifeApplication')}</h2>`;
+        
+        if (studyGuide.lifeApplication.practicalApplications && Array.isArray(studyGuide.lifeApplication.practicalApplications)) {
+          htmlContent += `
+            <div style="margin-bottom: 15px;">
+              <h3>${t('practicalApplications')}</h3>
+              <ul>
+          `;
+          studyGuide.lifeApplication.practicalApplications.forEach(app => {
+            htmlContent += `<li>${safeString(app)}</li>`;
+          });
+          htmlContent += `</ul></div>`;
+        }
+        
+        if (studyGuide.lifeApplication.reflectionPoints && Array.isArray(studyGuide.lifeApplication.reflectionPoints)) {
+          htmlContent += `
+            <div style="margin-bottom: 15px;">
+              <h3>${t('reflectionPoints')}</h3>
+              <ul>
+          `;
+          studyGuide.lifeApplication.reflectionPoints.forEach(point => {
+            htmlContent += `<li>${safeString(point)}</li>`;
+          });
+          htmlContent += `</ul></div>`;
+        }
+        
+        if (studyGuide.lifeApplication.actionSteps && Array.isArray(studyGuide.lifeApplication.actionSteps)) {
+          htmlContent += `
+            <div>
+              <h3>${t('actionSteps')}</h3>
+              <ol>
+          `;
+          studyGuide.lifeApplication.actionSteps.forEach(step => {
+            htmlContent += `<li>${safeString(step)}</li>`;
+          });
+          htmlContent += `</ol></div>`;
+        }
+        
+        htmlContent += `</div>`;
+      }
+
+      // Additional Resources
+      if (studyGuide.additionalResources) {
+        htmlContent += `<div class="section"><h2>${t('additionalResources')}</h2>`;
+        
+        if (studyGuide.additionalResources.crossReferences && Array.isArray(studyGuide.additionalResources.crossReferences)) {
+          htmlContent += `
+            <div style="margin-bottom: 15px;">
+              <h3>${t('crossReferences')}</h3>
+              <p>${studyGuide.additionalResources.crossReferences.join(' • ')}</p>
+            </div>
+          `;
+        }
+        
+        if (studyGuide.additionalResources.memoryVerses && Array.isArray(studyGuide.additionalResources.memoryVerses)) {
+          htmlContent += `
+            <div style="margin-bottom: 15px;">
+              <h3>${t('memoryVerses')}</h3>
+              <p>${studyGuide.additionalResources.memoryVerses.join(' • ')}</p>
+            </div>
+          `;
+        }
+        
+        if (studyGuide.additionalResources.prayerPoints && Array.isArray(studyGuide.additionalResources.prayerPoints)) {
+          htmlContent += `
+            <div>
+              <h3>${t('prayerPoints')}</h3>
+              <ul>
+          `;
+          studyGuide.additionalResources.prayerPoints.forEach(point => {
+            htmlContent += `<li>${safeString(point)}</li>`;
+          });
+          htmlContent += `</ul></div>`;
+        }
+        
+        htmlContent += `</div>`;
+      }
+
+      // Commentaries Used
+      if (studyGuide.commentariesUsed && Array.isArray(studyGuide.commentariesUsed) && studyGuide.commentariesUsed.length > 0) {
+        htmlContent += `<div class="section commentary-section"><h2>${t('commentariesUsed')}</h2>`;
+        
+        studyGuide.commentariesUsed.forEach(commentary => {
+          htmlContent += `
+            <div class="commentary">
+              <p>
+                <strong style="color: #2980b9;">${safeString(commentary.citation)}</strong> 
+                <strong>${safeString(commentary.name)}</strong> 
+                by <em>${safeString(commentary.author)}</em>
+              </p>
+              ${commentary.url ? `<p style="font-size: 11px; color: #7f8c8d; margin: 5px 0 0 0;">Source: ${safeString(commentary.url)}</p>` : ''}
+            </div>
+          `;
+        });
+        
+        htmlContent += `</div>`;
+      }
+
+      // Footer
+      htmlContent += `
+          <div class="footer">
+            <p>${t('downloadHeaders.generatedBy')}</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Open in new window
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+
+      // Show instructions
+      const message = i18n.language === 'zh' 
+        ? '请在新窗口中点击"打印/保存为PDF"按钮，然后选择"另存为PDF"' 
+        : 'Please click the "Print/Save as PDF" button in the new window, then choose "Save as PDF"';
+      
+      // Set timeout to show message after window opens
+      setTimeout(() => {
+        alert(message);
+      }, 500);
+
+    } catch (error) {
+      console.error('PDF export failed:', error);
+      alert(i18n.language === 'zh' ? 'PDF导出失败，请重试' : 'PDF export failed, please try again');
     }
   };
 
@@ -516,11 +727,11 @@ ${t('downloadHeaders.generatedBy')}`;
               </h2>
               {studyGuide && (
                 <button
-                  onClick={downloadStudyGuide}
+                  onClick={exportToPDF}
                   className="bg-green-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
                 >
                   <Download className="w-4 h-4" />
-                  {t('download')}
+                  {i18n.language === 'zh' ? '导出PDF' : 'Export PDF'}
                 </button>
               )}
             </div>
@@ -568,7 +779,7 @@ ${t('downloadHeaders.generatedBy')}`;
             )}
 
             {studyGuide && (
-              <div className="space-y-8 max-h-[calc(100vh-16rem)] overflow-y-auto pr-2">
+              <div ref={studyGuideRef} className="space-y-8 max-h-[calc(100vh-16rem)] overflow-y-auto pr-2">
                 {/* Header Section */}
                 <div className="text-center bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-6 shadow-sm">
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">{typeof studyGuide.title === 'string' ? studyGuide.title : 'Study Guide'}</h3>
@@ -766,11 +977,11 @@ ${t('downloadHeaders.generatedBy')}`;
                     {t('downloadPrompt')}
                   </p>
                   <button
-                    onClick={downloadStudyGuide}
+                    onClick={exportToPDF}
                     className="bg-green-600 text-white py-2 px-6 rounded-lg font-medium hover:bg-green-700 transition-colors inline-flex items-center gap-2"
                   >
                     <Download className="w-5 h-5" />
-                    {t('download')}
+                    {i18n.language === 'zh' ? '导出PDF' : 'Export PDF'}
                   </button>
                 </div>
               </div>
