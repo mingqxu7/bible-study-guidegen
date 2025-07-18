@@ -349,7 +349,7 @@ export class CommentaryRetriever {
   }
 
   // Get commentaries for a specific denomination and passage
-  async getCommentariesForDenomination(denomination, verseReference, maxCommentaries = 3, language = 'en') {
+  async getCommentariesForDenomination(denomination, verseReference, maxCommentaries = 3, language = 'en', selectedCommentaries = null) {
     try {
       const parsedVerse = this.parseVerseReference(verseReference, language);
       const commentaries = commentaryMapping[denomination];
@@ -362,10 +362,22 @@ export class CommentaryRetriever {
       const failedCommentaries = [];
       
       console.log(`Retrieving commentaries for ${denomination} on ${verseReference}`);
+      console.log('Selected commentaries received:', selectedCommentaries);
       
-      // Fetch commentaries sequentially to avoid overwhelming the server
-      // Limit to maxCommentaries number of commentaries
-      const limitedCommentaries = commentaries.slice(0, maxCommentaries);
+      // Filter commentaries based on selection or use default behavior
+      let commentariesToFetch;
+      if (selectedCommentaries && Object.keys(selectedCommentaries).length > 0) {
+        // Use only selected commentaries
+        commentariesToFetch = commentaries.filter(c => selectedCommentaries[c.code]);
+        console.log(`Using selected commentaries: ${commentariesToFetch.map(c => c.name).join(', ')}`);
+      } else {
+        // Default: use first maxCommentaries
+        commentariesToFetch = commentaries.slice(0, maxCommentaries);
+        console.log(`Using default first ${maxCommentaries} commentaries`);
+      }
+      
+      // Limit to maxCommentaries
+      const limitedCommentaries = commentariesToFetch.slice(0, maxCommentaries);
       
       for (const commentary of limitedCommentaries) {
         try {

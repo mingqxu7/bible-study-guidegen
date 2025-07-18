@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Book, Search, Download, Users, Cross, MessageSquare, Globe, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Book, Search, Download, Users, Cross, MessageSquare, Globe, CheckCircle, Clock, AlertCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 // Use relative path for API which works for both development (with Vite proxy) and production (Vercel)
@@ -15,7 +15,10 @@ const BibleStudyCreator = () => {
   const [error, setError] = useState('');
   const [progressSteps, setProgressSteps] = useState([]);
   const [currentStep, setCurrentStep] = useState(null);
+  const [selectedCommentaries, setSelectedCommentaries] = useState({});
+  const [expandedTheology, setExpandedTheology] = useState(null);
   const studyGuideRef = useRef(null);
+  const MAX_COMMENTARIES = 3;
 
   // Progress step component
   const ProgressStep = ({ step, isActive, isCompleted }) => {
@@ -90,31 +93,55 @@ const BibleStudyCreator = () => {
       id: 'calvinism', 
       name: t('theology.calvinism.name'), 
       description: t('theology.calvinism.description'),
-      commentaries: ['Calvin\'s Commentary', 'Matthew Henry', 'John Gill', 'Charles Spurgeon', 'Barnes\' Notes']
+      commentaries: [
+        { name: "Calvin's Commentary", code: "cal", author: "John Calvin" },
+        { name: "Matthew Henry", code: "mhm", author: "Matthew Henry" },
+        { name: "John Gill", code: "geb", author: "John Gill" },
+        { name: "Barnes' Notes", code: "bnb", author: "Albert Barnes" },
+        { name: "Jamieson-Fausset-Brown", code: "jfb", author: "Jamieson, Fausset, Brown" }
+      ]
     },
     { 
       id: 'arminianism', 
       name: t('theology.arminianism.name'), 
       description: t('theology.arminianism.description'),
-      commentaries: ['Wesley\'s Notes', 'Clarke\'s Commentary', 'Benson\'s Commentary', 'Whedon\'s Commentary']
+      commentaries: [
+        { name: "Wesley's Notes", code: "wen", author: "John Wesley" },
+        { name: "Clarke's Commentary", code: "acc", author: "Adam Clarke" },
+        { name: "Benson's Commentary", code: "rbc", author: "Joseph Benson" },
+        { name: "Whedon's Commentary", code: "whe", author: "Daniel Whedon" }
+      ]
     },
     { 
       id: 'dispensationalism', 
       name: t('theology.dispensationalism.name'), 
       description: t('theology.dispensationalism.description'),
-      commentaries: ['Scofield\'s Notes', 'Darby\'s Synopsis', 'Ironside\'s Notes', 'McGee\'s Commentary']
+      commentaries: [
+        { name: "Scofield Reference Notes", code: "srn", author: "C.I. Scofield" },
+        { name: "Darby's Synopsis", code: "dsn", author: "John Darby" },
+        { name: "Ironside's Notes", code: "isn", author: "H.A. Ironside" },
+        { name: "McGee's Commentary", code: "ttb", author: "J. Vernon McGee" }
+      ]
     },
     { 
       id: 'lutheranism', 
       name: t('theology.lutheranism.name'), 
       description: t('theology.lutheranism.description'),
-      commentaries: ['Kretzmann\'s Commentary', 'Bengel\'s Gnomon', 'Luther\'s Commentary']
+      commentaries: [
+        { name: "Kretzmann's Commentary", code: "kpc", author: "Paul Kretzmann" },
+        { name: "Bengel's Gnomon", code: "bng", author: "Johann Bengel" },
+        { name: "Luther's Commentary", code: "lut", author: "Martin Luther" }
+      ]
     },
     { 
       id: 'catholicism', 
       name: t('theology.catholicism.name'), 
       description: t('theology.catholicism.description'),
-      commentaries: ['Haydock\'s Commentary', 'Lapide\'s Commentary', 'Orchard\'s Commentary']
+      commentaries: [
+        { name: "Haydock's Commentary", code: "hcc", author: "George Haydock" },
+        { name: "Lapide's Commentary", code: "lap", author: "Cornelius Lapide" },
+        { name: "Orchard's Commentary", code: "orc", author: "Bernard Orchard" }
+      ]
     }
   ];
 
@@ -135,7 +162,8 @@ const BibleStudyCreator = () => {
         verseInput,
         selectedTheology,
         theologicalStances: JSON.stringify(theologicalStances),
-        language: i18n.language
+        language: i18n.language,
+        selectedCommentaries: JSON.stringify(selectedCommentaries[selectedTheology] || {})
       });
 
       const eventSource = new EventSource(`${API_BASE_URL}/generate-study-stream?${urlParams}`);
@@ -227,7 +255,8 @@ const BibleStudyCreator = () => {
           verseInput,
           selectedTheology,
           theologicalStances,
-          language: i18n.language
+          language: i18n.language,
+          selectedCommentaries: selectedCommentaries[selectedTheology] || {}
         }),
       });
 
@@ -653,7 +682,22 @@ const BibleStudyCreator = () => {
                         ? 'border-indigo-500 bg-indigo-50'
                         : 'border-gray-200 hover:border-indigo-300'
                     }`}
-                    onClick={() => setSelectedTheology(stance.id)}
+                    onClick={() => {
+                      setSelectedTheology(stance.id);
+                      // Only expand, never collapse when clicking the card
+                      if (expandedTheology !== stance.id) {
+                        setExpandedTheology(stance.id);
+                      }
+                      // Initialize selected commentaries for this theology if not already done
+                      if (!selectedCommentaries[stance.id]) {
+                        // Select first MAX_COMMENTARIES by default
+                        const defaultSelected = {};
+                        stance.commentaries.slice(0, MAX_COMMENTARIES).forEach(commentary => {
+                          defaultSelected[commentary.code] = true;
+                        });
+                        setSelectedCommentaries(prev => ({ ...prev, [stance.id]: defaultSelected }));
+                      }
+                    }}
                   >
                     <div className="flex items-center gap-3">
                       <input
@@ -661,18 +705,88 @@ const BibleStudyCreator = () => {
                         name="theology"
                         value={stance.id}
                         checked={selectedTheology === stance.id}
-                        onChange={() => setSelectedTheology(stance.id)}
+                        onChange={() => {
+                          setSelectedTheology(stance.id);
+                          // Only expand, never collapse when selecting the radio
+                          if (expandedTheology !== stance.id) {
+                            setExpandedTheology(stance.id);
+                          }
+                          // Initialize selected commentaries for this theology if not already done
+                          if (!selectedCommentaries[stance.id]) {
+                            // Select first MAX_COMMENTARIES by default
+                            const defaultSelected = {};
+                            stance.commentaries.slice(0, MAX_COMMENTARIES).forEach(commentary => {
+                              defaultSelected[commentary.code] = true;
+                            });
+                            setSelectedCommentaries(prev => ({ ...prev, [stance.id]: defaultSelected }));
+                          }
+                        }}
                         className="text-indigo-600"
                       />
                       <div>
                         <h3 className="font-semibold text-gray-800">{stance.name}</h3>
                         <p className="text-sm text-gray-600">{stance.description}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {t('commentariesLabel')} {stance.commentaries.slice(0, 3).join(', ')}
-                          {stance.commentaries.length > 3 && '...'}
-                        </p>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-xs text-gray-500">
+                            {t('commentariesLabel')} {stance.commentaries.length} available
+                          </p>
+                          {selectedTheology === stance.id && expandedTheology !== stance.id && (
+                            <div className="flex items-center text-xs text-indigo-600">
+                              <span className="mr-1">{t('selectCommentaries')}</span>
+                              <ChevronDown className="w-3 h-3" />
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
+                    
+                    {/* Expandable commentary selection */}
+                    {selectedTheology === stance.id && expandedTheology === stance.id && (
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          {t('selectUpTo')} {MAX_COMMENTARIES} {t('commentaries')}:
+                        </p>
+                        <div className="space-y-2">
+                          {stance.commentaries.map((commentary) => {
+                            const isSelected = selectedCommentaries[stance.id]?.[commentary.code] || false;
+                            const selectedCount = Object.values(selectedCommentaries[stance.id] || {}).filter(v => v).length;
+                            const isDisabled = !isSelected && selectedCount >= MAX_COMMENTARIES;
+                            
+                            return (
+                              <label
+                                key={commentary.code}
+                                className={`flex items-start gap-2 p-2 rounded cursor-pointer transition-all ${
+                                  isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  disabled={isDisabled}
+                                  onChange={(e) => {
+                                    setSelectedCommentaries(prev => ({
+                                      ...prev,
+                                      [stance.id]: {
+                                        ...prev[stance.id],
+                                        [commentary.code]: e.target.checked
+                                      }
+                                    }));
+                                  }}
+                                  className="mt-1 text-indigo-600"
+                                />
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-gray-700">{commentary.name}</p>
+                                  <p className="text-xs text-gray-500">{commentary.author}</p>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          {Object.values(selectedCommentaries[stance.id] || {}).filter(v => v).length} / {MAX_COMMENTARIES} {t('selected')}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

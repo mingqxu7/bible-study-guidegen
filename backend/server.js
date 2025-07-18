@@ -36,8 +36,9 @@ app.get('/api/generate-study-stream', async (req, res) => {
   });
 
   try {
-    const { verseInput, selectedTheology, theologicalStances, language = 'en' } = req.query;
+    const { verseInput, selectedTheology, theologicalStances, language = 'en', selectedCommentaries } = req.query;
     const parsedTheologicalStances = JSON.parse(theologicalStances || '[]');
+    const parsedSelectedCommentaries = selectedCommentaries ? JSON.parse(selectedCommentaries) : null;
 
     if (!verseInput || !selectedTheology) {
       res.write(`data: ${JSON.stringify({ error: 'Please provide both verse input and theological stance.' })}\n\n`);
@@ -82,11 +83,11 @@ app.get('/api/generate-study-stream', async (req, res) => {
     }
 
     // Continue with the rest of the function...
-    const body = { verseInput, selectedTheology, theologicalStances: parsedTheologicalStances, language };
+    const body = { verseInput, selectedTheology, theologicalStances: parsedTheologicalStances, language, selectedCommentaries: parsedSelectedCommentaries };
     req.body = body;
     
     // Process the request with progress updates
-    await processStudyGuideWithProgress(req, res, selectedStance, language, parsedVerse);
+    await processStudyGuideWithProgress(req, res, selectedStance, language, parsedVerse, parsedSelectedCommentaries);
     
   } catch (error) {
     console.error('Error in SSE endpoint:', error);
@@ -95,9 +96,11 @@ app.get('/api/generate-study-stream', async (req, res) => {
   }
 });
 
-async function processStudyGuideWithProgress(req, res, selectedStance, language, parsedVerse) {
+async function processStudyGuideWithProgress(req, res, selectedStance, language, parsedVerse, selectedCommentaries) {
   try {
     const { verseInput } = req.body;
+    console.log('processStudyGuideWithProgress - selectedCommentaries param:', selectedCommentaries);
+    console.log('processStudyGuideWithProgress - req.body.selectedCommentaries:', req.body.selectedCommentaries);
 
     // Step 2: Retrieve commentaries from StudyLight.org
     res.write(`data: ${JSON.stringify({ 
@@ -110,11 +113,13 @@ async function processStudyGuideWithProgress(req, res, selectedStance, language,
     let usableCommentaries = [];
     try {
       console.log('Retrieving commentaries...');
+      console.log('Selected commentaries:', selectedCommentaries);
       commentaryData = await commentaryRetriever.getCommentariesForDenomination(
         req.body.selectedTheology, 
         verseInput,
         MAX_COMMENTARIES,
-        language
+        language,
+        selectedCommentaries
       );
       
       const successfulCount = commentaryData.commentaries.length;
@@ -485,7 +490,7 @@ DO NOT OUTPUT ANYTHING OTHER THAN VALID JSON. DON'T INCLUDE LEADING BACKTICKS LI
 // Keep the original POST endpoint for backward compatibility
 app.post('/api/generate-study', async (req, res) => {
   try {
-    const { verseInput, selectedTheology, theologicalStances, language = 'en' } = req.body;
+    const { verseInput, selectedTheology, theologicalStances, language = 'en', selectedCommentaries } = req.body;
 
     if (!verseInput || !selectedTheology) {
       return res.status(400).json({ 
@@ -520,7 +525,8 @@ app.post('/api/generate-study', async (req, res) => {
         selectedTheology, 
         verseInput,
         MAX_COMMENTARIES,
-        language
+        language,
+        req.body.selectedCommentaries
       );
       
       const successfulCount = commentaryData.commentaries.length;
