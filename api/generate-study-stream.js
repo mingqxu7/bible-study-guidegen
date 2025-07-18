@@ -390,7 +390,26 @@ DO NOT OUTPUT ANYTHING OTHER THAN VALID JSON. DON'T INCLUDE LEADING BACKTICKS LI
       ]
     });
 
-    const studyData = JSON.parse(response.content[0].text);
+    let studyData;
+    try {
+      let responseText = response.content[0].text.trim();
+      console.log('Claude response length:', responseText.length);
+      console.log('Claude response first 500 chars:', responseText.substring(0, 500));
+      
+      // Clean up the response - remove any markdown code blocks
+      if (responseText.startsWith('```json')) {
+        responseText = responseText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      }
+      if (responseText.startsWith('```')) {
+        responseText = responseText.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+      
+      studyData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      console.error('Claude response that failed to parse:', response.content[0].text);
+      throw new Error('Failed to parse study guide response. The AI response may be incomplete or malformed.');
+    }
     
     // Add commentary metadata
     if (!studyData.commentariesUsed) {
