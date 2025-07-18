@@ -68,6 +68,11 @@ export default async function handler(req, res) {
       
       commentaryData = await Promise.race([commentaryPromise, timeoutPromise]);
       
+      // Check if verse limit error was returned
+      if (commentaryData.error) {
+        return res.status(400).json({ error: commentaryData.error });
+      }
+      
       const successfulCount = commentaryData.commentaries.length;
       const failedCount = commentaryData.failedCommentaries?.length || 0;
       

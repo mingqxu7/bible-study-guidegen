@@ -124,6 +124,13 @@ async function processStudyGuideWithProgress(req, res, selectedStance, language,
         MAX_VERSES
       );
       
+      // Check if verse limit error was returned
+      if (commentaryData.error) {
+        res.write(`data: ${JSON.stringify({ error: commentaryData.error })}\n\n`);
+        res.end();
+        return;
+      }
+      
       const successfulCount = commentaryData.commentaries.length;
       const failedCount = commentaryData.failedCommentaries?.length || 0;
       
@@ -531,6 +538,11 @@ app.post('/api/generate-study', async (req, res) => {
         req.body.selectedCommentaries,
         MAX_VERSES
       );
+      
+      // Check if verse limit error was returned
+      if (commentaryData.error) {
+        return res.status(400).json({ error: commentaryData.error });
+      }
       
       const successfulCount = commentaryData.commentaries.length;
       const failedCount = commentaryData.failedCommentaries?.length || 0;

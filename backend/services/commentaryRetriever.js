@@ -359,7 +359,11 @@ export class CommentaryRetriever {
         const errorMessage = language === 'zh' || language === 'zh-CN' || language.startsWith('zh') 
           ? `所选经文包含 ${verseCount} 节，超过了最大限制 ${maxVerses} 节。请选择较少的经文。`
           : `Selected passage contains ${verseCount} verses, which exceeds the maximum limit of ${maxVerses} verses. Please select fewer verses.`;
-        throw new Error(errorMessage);
+        return {
+          error: errorMessage,
+          verseCount: verseCount,
+          maxVerses: maxVerses
+        };
       }
       
       const commentaries = commentaryMapping[denomination];
