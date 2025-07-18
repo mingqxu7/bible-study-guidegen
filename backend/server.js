@@ -16,6 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const MAX_OUTPUT_TOKENS = parseInt(process.env.MAX_OUTPUT_TOKENS) || 16000;
 const MAX_COMMENTARIES = parseInt(process.env.MAX_COMMENTARIES) || 3;
+const MAX_VERSES = parseInt(process.env.MAX_VERSES) || 15;
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
 
 app.use(cors());
@@ -119,7 +120,8 @@ async function processStudyGuideWithProgress(req, res, selectedStance, language,
         verseInput,
         MAX_COMMENTARIES,
         language,
-        selectedCommentaries
+        selectedCommentaries,
+        MAX_VERSES
       );
       
       const successfulCount = commentaryData.commentaries.length;
@@ -526,7 +528,8 @@ app.post('/api/generate-study', async (req, res) => {
         verseInput,
         MAX_COMMENTARIES,
         language,
-        req.body.selectedCommentaries
+        req.body.selectedCommentaries,
+        MAX_VERSES
       );
       
       const successfulCount = commentaryData.commentaries.length;

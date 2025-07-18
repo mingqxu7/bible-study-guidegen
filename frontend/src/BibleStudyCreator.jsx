@@ -84,6 +84,9 @@ const BibleStudyCreator = () => {
     if (errorMessage.includes('Invalid verse format') || errorMessage.includes('经文格式无效')) {
       return t('errors.invalidFormat');
     }
+    if (errorMessage.includes('exceeds the maximum limit') || errorMessage.includes('超过了最大限制')) {
+      return t('errors.tooManyVerses');
+    }
     // For any other backend errors, return as is (they should already be in the correct language)
     return errorMessage;
   };

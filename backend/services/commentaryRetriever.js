@@ -349,9 +349,19 @@ export class CommentaryRetriever {
   }
 
   // Get commentaries for a specific denomination and passage
-  async getCommentariesForDenomination(denomination, verseReference, maxCommentaries = 3, language = 'en', selectedCommentaries = null) {
+  async getCommentariesForDenomination(denomination, verseReference, maxCommentaries = 3, language = 'en', selectedCommentaries = null, maxVerses = 15) {
     try {
       const parsedVerse = this.parseVerseReference(verseReference, language);
+      
+      // Check verse count limit
+      const verseCount = parsedVerse.endVerse ? (parsedVerse.endVerse - parsedVerse.startVerse + 1) : 1;
+      if (verseCount > maxVerses) {
+        const errorMessage = language === 'zh' || language === 'zh-CN' || language.startsWith('zh') 
+          ? `所选经文包含 ${verseCount} 节，超过了最大限制 ${maxVerses} 节。请选择较少的经文。`
+          : `Selected passage contains ${verseCount} verses, which exceeds the maximum limit of ${maxVerses} verses. Please select fewer verses.`;
+        throw new Error(errorMessage);
+      }
+      
       const commentaries = commentaryMapping[denomination];
       
       if (!commentaries) {

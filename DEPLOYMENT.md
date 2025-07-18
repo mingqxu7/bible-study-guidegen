@@ -23,6 +23,7 @@ Vercel will host both frontend and backend in a single deployment.
    ANTHROPIC_API_KEY=your_actual_api_key_here
    MAX_OUTPUT_TOKENS=16000
    MAX_COMMENTARIES=3
+   MAX_VERSES=15
    ```
 
 3. **Deploy**
@@ -62,6 +63,7 @@ Render will host frontend and backend as separate services.
      PORT=3001
      MAX_OUTPUT_TOKENS=16000
      MAX_COMMENTARIES=3
+     MAX_VERSES=15
      ```
 
 2. **Create Frontend Service**

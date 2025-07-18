@@ -4,6 +4,7 @@ import { getCommentaryUrl } from '../backend/services/commentaryMapping.js';
 
 const MAX_OUTPUT_TOKENS = parseInt(process.env.MAX_OUTPUT_TOKENS) || 8192;
 const MAX_COMMENTARIES = parseInt(process.env.MAX_COMMENTARIES) || 3;
+const MAX_VERSES = parseInt(process.env.MAX_VERSES) || 15;
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022';
 
 const anthropic = new Anthropic({
@@ -94,7 +95,8 @@ export default async function handler(req, res) {
         verseInput,
         MAX_COMMENTARIES,
         language,
-        parsedSelectedCommentaries
+        parsedSelectedCommentaries,
+        MAX_VERSES
       );
       
       const timeoutPromise = new Promise((_, reject) => 

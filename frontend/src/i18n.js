@@ -41,6 +41,7 @@ const resources = {
         "specifyChapter": "Please specify chapter and verses, not just the book.",
         "invalidFormat": "Invalid verse format.",
         "unknownBook": "Unknown book name.",
+        "tooManyVerses": "Too many verses selected. Please select fewer verses.",
         "serverError": "Failed to generate study guide. Please try again."
       },
       "theology": {
@@ -145,6 +146,7 @@ const resources = {
         "specifyChapter": "请指定章节和经文，不只是书卷。",
         "invalidFormat": "经文格式无效。",
         "unknownBook": "未知的书卷名称。",
+        "tooManyVerses": "选择的经文太多，请选择较少的经文。",
         "serverError": "生成学习指南失败，请重试。"
       },
       "theology": {
