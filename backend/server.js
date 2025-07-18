@@ -66,10 +66,14 @@ app.get('/api/generate-study-stream', async (req, res) => {
     let parsedVerse;
     try {
       parsedVerse = commentaryRetriever.parseVerseReference(verseInput, language);
+      
+      // Calculate the total number of verses in the range
+      const totalVerses = parsedVerse.endVerse ? (parsedVerse.endVerse - parsedVerse.startVerse + 1) : 1;
+      
       res.write(`data: ${JSON.stringify({ 
         type: 'progress', 
         step: 'parsed', 
-        message: language === 'zh' ? `已解析经文：${parsedVerse.bookName} ${parsedVerse.chapter}:${parsedVerse.startVerse}${parsedVerse.endVerse ? '-' + parsedVerse.endVerse : ''}` : `Parsed: ${parsedVerse.bookName} ${parsedVerse.chapter}:${parsedVerse.startVerse}${parsedVerse.endVerse ? '-' + parsedVerse.endVerse : ''}`
+        message: language === 'zh' ? `已解析经文：${parsedVerse.bookName} ${parsedVerse.chapter}:${parsedVerse.startVerse}${parsedVerse.endVerse ? '-' + parsedVerse.endVerse : ''} (共${totalVerses}节)` : `Parsed: ${parsedVerse.bookName} ${parsedVerse.chapter}:${parsedVerse.startVerse}${parsedVerse.endVerse ? '-' + parsedVerse.endVerse : ''} (${totalVerses} verses total)`
       })}\n\n`);
     } catch (parseError) {
       res.write(`data: ${JSON.stringify({ error: parseError.message })}\n\n`);
@@ -82,7 +86,7 @@ app.get('/api/generate-study-stream', async (req, res) => {
     req.body = body;
     
     // Process the request with progress updates
-    await processStudyGuideWithProgress(req, res, selectedStance, language);
+    await processStudyGuideWithProgress(req, res, selectedStance, language, parsedVerse);
     
   } catch (error) {
     console.error('Error in SSE endpoint:', error);
@@ -91,7 +95,7 @@ app.get('/api/generate-study-stream', async (req, res) => {
   }
 });
 
-async function processStudyGuideWithProgress(req, res, selectedStance, language) {
+async function processStudyGuideWithProgress(req, res, selectedStance, language, parsedVerse) {
   try {
     const { verseInput } = req.body;
 
@@ -230,7 +234,7 @@ ${commentary.content}
 ---`)
       .join('\n');
 
-    // Step 3: Create enhanced prompt with commentary content
+    // Step 4: Create enhanced prompt with commentary content
     const isChinese = language === 'zh' || language === 'zh-CN' || language.startsWith('zh');
     const languageInstructions = isChinese 
       ? `CRITICAL LANGUAGE REQUIREMENT: 
@@ -271,8 +275,9 @@ Using the above commentaries as your primary source material, create a detailed 
 2. **Verse-by-Verse Exegesis**
    - CRITICAL REQUIREMENT: You MUST provide detailed explanation for EVERY SINGLE VERSE in the passage ${verseInput}
    - If the passage is ${verseInput}, you must include ALL verses from the beginning to the end of that range
-   - ABSOLUTELY NO SKIPPING: Cover each verse individually - if there are 17 verses, provide 17 separate explanations
+   - ABSOLUTELY NO SKIPPING: Cover each verse individually - you MUST provide ${parsedVerse.endVerse ? (parsedVerse.endVerse - parsedVerse.startVerse + 1) : 1} separate explanations
    - Each verse must have its own entry in the exegesis array with verse number, text, and explanation
+   - MANDATORY VERSE LIST: You must include these specific verses: ${parsedVerse.endVerse ? Array.from({length: parsedVerse.endVerse - parsedVerse.startVerse + 1}, (_, i) => `${parsedVerse.chapter}:${parsedVerse.startVerse + i}`).join(', ') : `${parsedVerse.chapter}:${parsedVerse.startVerse}`}
    - Base explanations on the provided commentaries WITH CITATIONS [1], [2], etc.
    - Include citation numbers when referencing commentary insights
    - Key Greek/Hebrew word insights where mentioned in commentaries (with citations)
@@ -302,8 +307,9 @@ CRITICAL REQUIREMENT FOR VERSE COVERAGE:
 - Your exegesis array MUST include an entry for EVERY SINGLE VERSE in the passage ${verseInput}
 - Do not omit ANY verses from the specified range
 - If the passage is ${verseInput}, you must cover EVERY verse from the beginning to the end of that range
-- Count the verses carefully and ensure your exegesis array has the correct number of entries
-- For example, if the passage is "1 Corinthians 7:24-40", you must include verses 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, and 40 (17 verses total)
+- Count the verses carefully and ensure your exegesis array has exactly ${parsedVerse.endVerse ? (parsedVerse.endVerse - parsedVerse.startVerse + 1) : 1} entries
+- MANDATORY: Include these specific verses: ${parsedVerse.endVerse ? Array.from({length: parsedVerse.endVerse - parsedVerse.startVerse + 1}, (_, i) => `${parsedVerse.chapter}:${parsedVerse.startVerse + i}`).join(', ') : `${parsedVerse.chapter}:${parsedVerse.startVerse}`}
+- Your exegesis array length MUST equal ${parsedVerse.endVerse ? (parsedVerse.endVerse - parsedVerse.startVerse + 1) : 1}
 - FAILURE TO INCLUDE ALL VERSES IS UNACCEPTABLE
 
 Respond with a well-structured JSON object in this format:
@@ -391,7 +397,7 @@ ${isChinese ? `{
 
 DO NOT OUTPUT ANYTHING OTHER THAN VALID JSON. DON'T INCLUDE LEADING BACKTICKS LIKE \`\`\`json.`;
 
-    // Step 4: Generate study guide with Claude
+    // Step 5: Generate study guide with Claude
     res.write(`data: ${JSON.stringify({ 
       type: 'progress', 
       step: 'generating_guide', 
@@ -497,7 +503,15 @@ app.post('/api/generate-study', async (req, res) => {
 
     console.log(`Generating study guide for ${verseInput} with ${selectedStance.name} perspective in ${language} language`);
 
-    // Step 1: Retrieve commentaries from StudyLight.org
+    // Step 1: Parse verse reference
+    let parsedVerse;
+    try {
+      parsedVerse = commentaryRetriever.parseVerseReference(verseInput, language);
+    } catch (parseError) {
+      return res.status(400).json({ error: parseError.message });
+    }
+
+    // Step 2: Retrieve commentaries from StudyLight.org
     let commentaryData;
     let usableCommentaries = [];
     try {
@@ -566,7 +580,7 @@ app.post('/api/generate-study', async (req, res) => {
         console.log('No commentaries available to print.');
     }
 
-    // Step 2: Filter out commentaries with no available verses and format for prompt
+    // Step 3: Filter out commentaries with no available verses and format for prompt
     usableCommentaries = commentaryData.commentaries.filter(commentary => {
       // Filter out commentaries that have no content for the requested verses
       return !commentary.content.startsWith('No commentary available for verses');
@@ -593,7 +607,7 @@ ${commentary.content}
 ---`)
       .join('\n');
 
-    // Step 3: Create enhanced prompt with commentary content
+    // Step 4: Create enhanced prompt with commentary content
     const isChinese = language === 'zh' || language === 'zh-CN' || language.startsWith('zh');
     const languageInstructions = isChinese 
       ? `CRITICAL LANGUAGE REQUIREMENT: 
@@ -634,8 +648,9 @@ Using the above commentaries as your primary source material, create a detailed 
 2. **Verse-by-Verse Exegesis**
    - CRITICAL REQUIREMENT: You MUST provide detailed explanation for EVERY SINGLE VERSE in the passage ${verseInput}
    - If the passage is ${verseInput}, you must include ALL verses from the beginning to the end of that range
-   - ABSOLUTELY NO SKIPPING: Cover each verse individually - if there are 17 verses, provide 17 separate explanations
+   - ABSOLUTELY NO SKIPPING: Cover each verse individually - you MUST provide ${parsedVerse.endVerse ? (parsedVerse.endVerse - parsedVerse.startVerse + 1) : 1} separate explanations
    - Each verse must have its own entry in the exegesis array with verse number, text, and explanation
+   - MANDATORY VERSE LIST: You must include these specific verses: ${parsedVerse.endVerse ? Array.from({length: parsedVerse.endVerse - parsedVerse.startVerse + 1}, (_, i) => `${parsedVerse.chapter}:${parsedVerse.startVerse + i}`).join(', ') : `${parsedVerse.chapter}:${parsedVerse.startVerse}`}
    - Base explanations on the provided commentaries WITH CITATIONS [1], [2], etc.
    - Include citation numbers when referencing commentary insights
    - Key Greek/Hebrew word insights where mentioned in commentaries (with citations)
@@ -665,8 +680,9 @@ CRITICAL REQUIREMENT FOR VERSE COVERAGE:
 - Your exegesis array MUST include an entry for EVERY SINGLE VERSE in the passage ${verseInput}
 - Do not omit ANY verses from the specified range
 - If the passage is ${verseInput}, you must cover EVERY verse from the beginning to the end of that range
-- Count the verses carefully and ensure your exegesis array has the correct number of entries
-- For example, if the passage is "1 Corinthians 7:24-40", you must include verses 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, and 40 (17 verses total)
+- Count the verses carefully and ensure your exegesis array has exactly ${parsedVerse.endVerse ? (parsedVerse.endVerse - parsedVerse.startVerse + 1) : 1} entries
+- MANDATORY: Include these specific verses: ${parsedVerse.endVerse ? Array.from({length: parsedVerse.endVerse - parsedVerse.startVerse + 1}, (_, i) => `${parsedVerse.chapter}:${parsedVerse.startVerse + i}`).join(', ') : `${parsedVerse.chapter}:${parsedVerse.startVerse}`}
+- Your exegesis array length MUST equal ${parsedVerse.endVerse ? (parsedVerse.endVerse - parsedVerse.startVerse + 1) : 1}
 - FAILURE TO INCLUDE ALL VERSES IS UNACCEPTABLE
 
 Respond with a well-structured JSON object in this format:
@@ -754,7 +770,7 @@ ${isChinese ? `{
 
 DO NOT OUTPUT ANYTHING OTHER THAN VALID JSON. DON'T INCLUDE LEADING BACKTICKS LIKE \`\`\`json.`;
 
-    // Step 4: Generate study guide with Claude
+    // Step 5: Generate study guide with Claude
     console.log('Generating study guide with Claude...');
     const response = await anthropic.messages.create({
       model: ANTHROPIC_MODEL,
