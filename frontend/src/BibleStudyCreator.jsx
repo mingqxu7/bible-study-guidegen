@@ -85,6 +85,14 @@ const BibleStudyCreator = () => {
       return t('errors.invalidFormat');
     }
     if (errorMessage.includes('exceeds the maximum limit') || errorMessage.includes('超过了最大限制')) {
+      // Extract the verse limit from the error message if available
+      const limitMatch = errorMessage.match(/(?:no more than|不超过)\s+(\d+)\s+(?:verses|节)/);
+      if (limitMatch) {
+        const limit = limitMatch[1];
+        return i18n.language === 'zh' 
+          ? `选择的经文太多，请选择不超过 ${limit} 节的经文。`
+          : `Too many verses selected. Please select no more than ${limit} verses.`;
+      }
       return t('errors.tooManyVerses');
     }
     // For any other backend errors, return as is (they should already be in the correct language)

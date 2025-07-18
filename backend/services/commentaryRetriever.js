@@ -357,8 +357,8 @@ export class CommentaryRetriever {
       const verseCount = parsedVerse.endVerse ? (parsedVerse.endVerse - parsedVerse.startVerse + 1) : 1;
       if (verseCount > maxVerses) {
         const errorMessage = language === 'zh' || language === 'zh-CN' || language.startsWith('zh') 
-          ? `所选经文包含 ${verseCount} 节，超过了最大限制 ${maxVerses} 节。请选择较少的经文。`
-          : `Selected passage contains ${verseCount} verses, which exceeds the maximum limit of ${maxVerses} verses. Please select fewer verses.`;
+          ? `所选经文包含 ${verseCount} 节，超过了最大限制。请选择不超过 ${maxVerses} 节的经文。`
+          : `Selected passage contains ${verseCount} verses, which exceeds the maximum limit. Please select no more than ${maxVerses} verses.`;
         return {
           error: errorMessage,
           verseCount: verseCount,
