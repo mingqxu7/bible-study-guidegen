@@ -30,8 +30,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { verseInput, selectedTheology, theologicalStances, language = 'en' } = req.query;
+    const { verseInput, selectedTheology, theologicalStances, language = 'en', selectedCommentaries } = req.query;
     const parsedTheologicalStances = JSON.parse(theologicalStances || '[]');
+    const parsedSelectedCommentaries = selectedCommentaries ? JSON.parse(selectedCommentaries) : null;
 
     if (!verseInput || !selectedTheology) {
       res.write(`data: ${JSON.stringify({ error: 'Please provide both verse input and theological stance.' })}\n\n`);
@@ -60,10 +61,14 @@ export default async function handler(req, res) {
     let parsedVerse;
     try {
       parsedVerse = commentaryRetriever.parseVerseReference(verseInput, language);
+      
+      // Calculate the total number of verses in the range
+      const totalVerses = parsedVerse.endVerse ? (parsedVerse.endVerse - parsedVerse.startVerse + 1) : 1;
+      
       res.write(`data: ${JSON.stringify({ 
         type: 'progress', 
         step: 'parsed', 
-        message: language === 'zh' ? `已解析经文：${parsedVerse.bookName} ${parsedVerse.chapter}:${parsedVerse.startVerse}${parsedVerse.endVerse ? '-' + parsedVerse.endVerse : ''}` : `Parsed: ${parsedVerse.bookName} ${parsedVerse.chapter}:${parsedVerse.startVerse}${parsedVerse.endVerse ? '-' + parsedVerse.endVerse : ''}`
+        message: language === 'zh' ? `已解析经文：${parsedVerse.bookName} ${parsedVerse.chapter}:${parsedVerse.startVerse}${parsedVerse.endVerse ? '-' + parsedVerse.endVerse : ''} (共${totalVerses}节)` : `Parsed: ${parsedVerse.bookName} ${parsedVerse.chapter}:${parsedVerse.startVerse}${parsedVerse.endVerse ? '-' + parsedVerse.endVerse : ''} (${totalVerses} verses total)`
       })}\n\n`);
     } catch (parseError) {
       res.write(`data: ${JSON.stringify({ error: parseError.message })}\n\n`);
@@ -88,7 +93,8 @@ export default async function handler(req, res) {
         selectedTheology, 
         verseInput,
         MAX_COMMENTARIES,
-        language
+        language,
+        parsedSelectedCommentaries
       );
       
       const timeoutPromise = new Promise((_, reject) => 
@@ -234,8 +240,9 @@ Using the above commentaries as your primary source material, create a detailed 
 2. **Verse-by-Verse Exegesis**
    - CRITICAL REQUIREMENT: You MUST provide detailed explanation for EVERY SINGLE VERSE in the passage ${verseInput}
    - If the passage is ${verseInput}, you must include ALL verses from the beginning to the end of that range
-   - ABSOLUTELY NO SKIPPING: Cover each verse individually - if there are 3 verses, provide 3 separate explanations
+   - ABSOLUTELY NO SKIPPING: Cover each verse individually - you MUST provide ${parsedVerse.endVerse ? (parsedVerse.endVerse - parsedVerse.startVerse + 1) : 1} separate explanations
    - Each verse must have its own entry in the exegesis array with verse number, text, and explanation
+   - MANDATORY VERSE LIST: You must include these specific verses: ${parsedVerse.endVerse ? Array.from({length: parsedVerse.endVerse - parsedVerse.startVerse + 1}, (_, i) => `${parsedVerse.chapter}:${parsedVerse.startVerse + i}`).join(', ') : `${parsedVerse.chapter}:${parsedVerse.startVerse}`}
    - Base explanations on the provided commentaries WITH CITATIONS [1], [2], etc.
    - Include citation numbers when referencing commentary insights
    - Key Greek/Hebrew word insights where mentioned in commentaries (with citations)
@@ -265,7 +272,9 @@ CRITICAL REQUIREMENT FOR VERSE COVERAGE:
 - Your exegesis array MUST include an entry for EVERY SINGLE VERSE in the passage ${verseInput}
 - Do not omit ANY verses from the specified range
 - If the passage is ${verseInput}, you must cover EVERY verse from the beginning to the end of that range
-- Count the verses carefully and ensure your exegesis array has the correct number of entries
+- Count the verses carefully and ensure your exegesis array has exactly ${parsedVerse.endVerse ? (parsedVerse.endVerse - parsedVerse.startVerse + 1) : 1} entries
+- MANDATORY: Include these specific verses: ${parsedVerse.endVerse ? Array.from({length: parsedVerse.endVerse - parsedVerse.startVerse + 1}, (_, i) => `${parsedVerse.chapter}:${parsedVerse.startVerse + i}`).join(', ') : `${parsedVerse.chapter}:${parsedVerse.startVerse}`}
+- Your exegesis array length MUST equal ${parsedVerse.endVerse ? (parsedVerse.endVerse - parsedVerse.startVerse + 1) : 1}
 - FAILURE TO INCLUDE ALL VERSES IS UNACCEPTABLE
 
 Respond with a well-structured JSON object in this format:

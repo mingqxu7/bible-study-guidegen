@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { verseInput, selectedTheology, theologicalStances, language = 'en' } = req.body;
+    const { verseInput, selectedTheology, theologicalStances, language = 'en', selectedCommentaries } = req.body;
 
     if (!verseInput || !selectedTheology) {
       return res.status(400).json({ 
@@ -56,7 +56,8 @@ export default async function handler(req, res) {
         selectedTheology, 
         verseInput,
         MAX_COMMENTARIES,
-        language
+        language,
+        selectedCommentaries
       );
       
       const timeoutPromise = new Promise((_, reject) => 
