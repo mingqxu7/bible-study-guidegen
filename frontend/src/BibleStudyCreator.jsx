@@ -1193,6 +1193,11 @@ const BibleStudyCreator = () => {
                     {i18n.language === 'zh' ? '导出PDF' : 'Export PDF'}
                   </button>
                 </div>
+
+                {/* Footer */}
+                <div className="text-center py-4 text-sm text-gray-600">
+                  <p>{t('downloadHeaders.generatedBy')}</p>
+                </div>
               </div>
             )}
           </div>
