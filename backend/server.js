@@ -451,9 +451,10 @@ CRITICAL JSON FORMATTING REQUIREMENTS:
     })}\n\n`);
     
     console.log('Generating study guide with Claude...');
-    const response = await anthropic.messages.create({
+    const stream = await anthropic.messages.create({
       model: ANTHROPIC_MODEL,
       max_tokens: MAX_OUTPUT_TOKENS,
+      stream: true,
       messages: [
         {
           role: 'user',
@@ -462,9 +463,24 @@ CRITICAL JSON FORMATTING REQUIREMENTS:
       ]
     });
 
+    let responseText = '';
+    
+    for await (const messageStreamEvent of stream) {
+      if (messageStreamEvent.type === 'content_block_delta') {
+        const delta = messageStreamEvent.delta.text;
+        responseText += delta;
+        
+        // Send streaming tokens to frontend
+        res.write(`data: ${JSON.stringify({ 
+          type: 'token', 
+          content: delta,
+          totalLength: responseText.length
+        })}\n\n`);
+      }
+    }
+
     let studyData;
     try {
-      let responseText = response.content[0].text.trim();
       console.log('Claude response length:', responseText.length);
       console.log('Claude response first 500 chars:', responseText.substring(0, 500));
       

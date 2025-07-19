@@ -15,10 +15,20 @@ const BibleStudyCreator = () => {
   const [error, setError] = useState('');
   const [progressSteps, setProgressSteps] = useState([]);
   const [currentStep, setCurrentStep] = useState(null);
+  const [streamingContent, setStreamingContent] = useState('');
+  const [showStreamingContent, setShowStreamingContent] = useState(false);
   const [selectedCommentaries, setSelectedCommentaries] = useState({});
   const [expandedTheology, setExpandedTheology] = useState(null);
   const studyGuideRef = useRef(null);
+  const streamingContentRef = useRef(null);
   const MAX_COMMENTARIES = 3;
+
+  // Auto-scroll streaming content to bottom when new tokens arrive
+  useEffect(() => {
+    if (streamingContentRef.current && showStreamingContent) {
+      streamingContentRef.current.scrollTop = streamingContentRef.current.scrollHeight;
+    }
+  }, [streamingContent, showStreamingContent]);
 
   // Progress step component
   const ProgressStep = ({ step, isActive, isCompleted }) => {
@@ -167,6 +177,8 @@ const BibleStudyCreator = () => {
     setStudyGuide(null);
     setProgressSteps([]);
     setCurrentStep(null);
+    setStreamingContent('');
+    setShowStreamingContent(false);
 
     try {
       const urlParams = new URLSearchParams({
@@ -210,9 +222,20 @@ const BibleStudyCreator = () => {
             });
             
             setCurrentStep(data.step);
+            
+            // Show streaming content when Claude starts generating
+            if (data.step === 'generating_guide') {
+              setShowStreamingContent(true);
+              setStreamingContent('');
+            }
+          } else if (data.type === 'token') {
+            // Update streaming content with new tokens
+            setStreamingContent(prev => prev + data.content);
           } else if (data.type === 'complete') {
             setStudyGuide(data.data);
             setCurrentStep('completed');
+            setShowStreamingContent(false);
+            setStreamingContent('');
             eventSource.close();
             setIsGenerating(false);
           }
@@ -918,6 +941,30 @@ const BibleStudyCreator = () => {
                         />
                       );
                     })}
+                  </div>
+                )}
+
+                {/* Real-time Claude Response Display */}
+                {showStreamingContent && (
+                  <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                      <h4 className="font-medium text-gray-800">
+                        {i18n.language === 'zh' ? 'Claude 正在生成回应...' : 'Claude is generating response...'}
+                      </h4>
+                      <span className="text-xs text-gray-500">
+                        {streamingContent.length} {i18n.language === 'zh' ? '字符' : 'characters'}
+                      </span>
+                    </div>
+                    <div 
+                      ref={streamingContentRef}
+                      className="bg-white border rounded p-3 max-h-64 overflow-y-auto scroll-smooth"
+                    >
+                      <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono leading-relaxed">
+                        {streamingContent}
+                        <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-1"></span>
+                      </pre>
+                    </div>
                   </div>
                 )}
               </div>
