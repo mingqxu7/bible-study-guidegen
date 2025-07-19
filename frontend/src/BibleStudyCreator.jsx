@@ -490,6 +490,26 @@ const BibleStudyCreator = () => {
             htmlContent += `</ul></div>`;
           }
           
+          if (verse.verbatimQuotes && Array.isArray(verse.verbatimQuotes) && verse.verbatimQuotes.length > 0) {
+            htmlContent += `
+              <div style="margin-bottom: 10px;">
+                <h4>${t('commentaryQuotes') || 'Commentary Quotes'}</h4>
+            `;
+            verse.verbatimQuotes.forEach(quote => {
+              htmlContent += `
+                <div style="margin: 10px 0; padding: 10px; background-color: #f5f5f5; border-left: 3px solid #4f46e5; border-radius: 4px;">
+                  <blockquote style="margin: 0; font-style: italic; color: #4b5563;">
+                    "${safeString(quote.quote)}"
+                  </blockquote>
+                  <p style="margin-top: 5px; font-size: 0.875rem; color: #6b7280;">
+                    — ${safeString(quote.author)}, <em>${safeString(quote.commentary)}</em>
+                  </p>
+                </div>
+              `;
+            });
+            htmlContent += `</div>`;
+          }
+          
           if (verse.crossReferences && Array.isArray(verse.crossReferences) && verse.crossReferences.length > 0) {
             htmlContent += `
               <div>
@@ -968,6 +988,23 @@ const BibleStudyCreator = () => {
                                 <li key={i} className="text-gray-700">{insight}</li>
                               ))}
                             </ul>
+                          </div>
+                        )}
+                        {verse.verbatimQuotes && Array.isArray(verse.verbatimQuotes) && verse.verbatimQuotes.length > 0 && (
+                          <div className="mb-3">
+                            <h6 className="font-semibold text-gray-800 mb-2">{t('commentaryQuotes') || 'Commentary Quotes'}</h6>
+                            <div className="space-y-2">
+                              {verse.verbatimQuotes.map((quote, i) => (
+                                <div key={i} className="bg-gray-50 border-l-4 border-indigo-500 pl-4 pr-3 py-3 rounded-r">
+                                  <blockquote className="italic text-gray-700 mb-2">
+                                    "{quote.quote}"
+                                  </blockquote>
+                                  <p className="text-sm text-gray-600">
+                                    — {quote.author}, <em>{quote.commentary}</em>
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                         {verse.crossReferences && Array.isArray(verse.crossReferences) && verse.crossReferences.length > 0 && (

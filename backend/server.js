@@ -14,7 +14,7 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const MAX_OUTPUT_TOKENS = parseInt(process.env.MAX_OUTPUT_TOKENS) || 16000;
+const MAX_OUTPUT_TOKENS = parseInt(process.env.MAX_OUTPUT_TOKENS) || 24000;
 const MAX_COMMENTARIES = parseInt(process.env.MAX_COMMENTARIES) || 3;
 const MAX_VERSES = parseInt(process.env.MAX_VERSES) || 15;
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
@@ -279,6 +279,14 @@ ${commentariesText}
 
 IMPORTANT CITATION REQUIREMENT: When using information from the commentaries above, you MUST cite them using the numbers in brackets [1], [2], [3], etc. Every claim, interpretation, or insight drawn from a commentary must include its citation number.
 
+VERBATIM QUOTE REQUIREMENT: For each verse, you MUST extract at least one insightful verbatim quote from the commentaries. These quotes should:
+- Be the most significant and insightful portions of the commentary for that specific verse
+- Be extracted exactly as written in the commentary (word-for-word)
+- Include proper citation with commentary name and author
+- Focus on theological insights, word studies, historical context, or practical applications
+- Be substantial enough to provide meaningful insight (at least one complete sentence)
+- If multiple commentaries address the same verse, extract quotes from different commentaries to provide diverse perspectives
+
 Using the above commentaries as your primary source material, create a detailed study guide that includes:
 
 1. **Passage Overview**
@@ -292,8 +300,10 @@ Using the above commentaries as your primary source material, create a detailed 
    - ABSOLUTELY NO SKIPPING: Cover each verse individually - you MUST provide ${parsedVerse.endVerse ? (parsedVerse.endVerse - parsedVerse.startVerse + 1) : 1} separate explanations
    - Each verse must have its own entry in the exegesis array with verse number, text, and explanation
    - MANDATORY VERSE LIST: You must include these specific verses: ${parsedVerse.endVerse ? Array.from({length: parsedVerse.endVerse - parsedVerse.startVerse + 1}, (_, i) => `${parsedVerse.chapter}:${parsedVerse.startVerse + i}`).join(', ') : `${parsedVerse.chapter}:${parsedVerse.startVerse}`}
-   - Base explanations on the provided commentaries WITH CITATIONS [1], [2], etc.
-   - Include citation numbers when referencing commentary insights
+   - Base explanations on the provided commentaries
+   - CRITICAL CITATION REQUIREMENT: Throughout the explanation text, you MUST include citation numbers [1], [2], [3] when referencing specific commentary insights
+   - Simply add the citation number at the end of sentences or phrases that reference commentary insights
+   - MANDATORY: Extract insightful verbatim quotes from commentaries for each verse
    - Key Greek/Hebrew word insights where mentioned in commentaries (with citations)
    - Cross-references to related passages
    - Theological insights from the ${selectedStance.name} perspective
@@ -341,6 +351,13 @@ ${isChinese ? `{
       "verse": "经文章节",
       "text": "经文内容（中文）",
       "explanation": "基于注释书的详细解释（中文）",
+      "verbatimQuotes": [
+        {
+          "quote": "逐字引用的注释内容",
+          "commentary": "注释书名称",
+          "author": "作者姓名"
+        }
+      ],
       "keyInsights": ["要点1（中文）", "要点2（中文）"],
       "crossReferences": ["参考经文1", "参考经文2"]
     }
@@ -381,6 +398,13 @@ ${isChinese ? `{
       "verse": "Verse reference",
       "text": "Verse text",
       "explanation": "Detailed explanation based on commentaries",
+      "verbatimQuotes": [
+        {
+          "quote": "Exact quote from commentary",
+          "commentary": "Commentary name",
+          "author": "Author name"
+        }
+      ],
       "keyInsights": ["insight1", "insight2"],
       "crossReferences": ["ref1", "ref2"]
     }
@@ -409,7 +433,14 @@ ${isChinese ? `{
   ]
 }`}
 
-DO NOT OUTPUT ANYTHING OTHER THAN VALID JSON. DON'T INCLUDE LEADING BACKTICKS LIKE \`\`\`json.`;
+CRITICAL JSON FORMATTING REQUIREMENTS:
+- DO NOT OUTPUT ANYTHING OTHER THAN VALID JSON
+- DON'T INCLUDE LEADING BACKTICKS LIKE \`\`\`json
+- ESCAPE ALL QUOTATION MARKS: Any quote marks (both English " and Chinese "引号") within JSON string values MUST be escaped with backslashes (\")
+- This includes quotes in explanations, verbatim quotes, commentary text, and ALL other string content
+- Example: "这里的\\"沉沦\\"不是指" instead of "这里的"沉沦"不是指"
+- Make sure the JSON is complete and properly closed with all brackets and braces
+- If the response is getting too long, prioritize completing the JSON structure over adding more content`;
 
     // Step 5: Generate study guide with Claude
     res.write(`data: ${JSON.stringify({ 
@@ -444,10 +475,28 @@ DO NOT OUTPUT ANYTHING OTHER THAN VALID JSON. DON'T INCLUDE LEADING BACKTICKS LI
         responseText = responseText.replace(/^```\s*/, '').replace(/\s*```$/, '');
       }
       
+      // Check if response was truncated (ends mid-JSON)
+      if (!responseText.endsWith('}')) {
+        console.error('Response appears truncated. Last 100 chars:', responseText.slice(-100));
+        throw new Error('Study guide response was truncated. Please try with fewer verses or contact support.');
+      }
+      
       studyData = JSON.parse(responseText);
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
       console.error('Claude response that failed to parse:', response.content[0].text);
+      
+      // Try to identify the specific issue
+      if (parseError.message.includes('Expected')) {
+        const match = parseError.message.match(/position (\d+)/);
+        if (match) {
+          const position = parseInt(match[1]);
+          const start = Math.max(0, position - 50);
+          const end = Math.min(response.content[0].text.length, position + 50);
+          console.error('Error context:', response.content[0].text.substring(start, end));
+        }
+      }
+      
       throw new Error('Failed to parse study guide response. The AI response may be incomplete or malformed.');
     }
     
@@ -678,6 +727,14 @@ ${commentariesText}
 
 IMPORTANT CITATION REQUIREMENT: When using information from the commentaries above, you MUST cite them using the numbers in brackets [1], [2], [3], etc. Every claim, interpretation, or insight drawn from a commentary must include its citation number.
 
+VERBATIM QUOTE REQUIREMENT: For each verse, you MUST extract at least one insightful verbatim quote from the commentaries. These quotes should:
+- Be the most significant and insightful portions of the commentary for that specific verse
+- Be extracted exactly as written in the commentary (word-for-word)
+- Include proper citation with commentary name and author
+- Focus on theological insights, word studies, historical context, or practical applications
+- Be substantial enough to provide meaningful insight (at least one complete sentence)
+- If multiple commentaries address the same verse, extract quotes from different commentaries to provide diverse perspectives
+
 Using the above commentaries as your primary source material, create a detailed study guide that includes:
 
 1. **Passage Overview**
@@ -691,8 +748,10 @@ Using the above commentaries as your primary source material, create a detailed 
    - ABSOLUTELY NO SKIPPING: Cover each verse individually - you MUST provide ${parsedVerse.endVerse ? (parsedVerse.endVerse - parsedVerse.startVerse + 1) : 1} separate explanations
    - Each verse must have its own entry in the exegesis array with verse number, text, and explanation
    - MANDATORY VERSE LIST: You must include these specific verses: ${parsedVerse.endVerse ? Array.from({length: parsedVerse.endVerse - parsedVerse.startVerse + 1}, (_, i) => `${parsedVerse.chapter}:${parsedVerse.startVerse + i}`).join(', ') : `${parsedVerse.chapter}:${parsedVerse.startVerse}`}
-   - Base explanations on the provided commentaries WITH CITATIONS [1], [2], etc.
-   - Include citation numbers when referencing commentary insights
+   - Base explanations on the provided commentaries
+   - CRITICAL CITATION REQUIREMENT: Throughout the explanation text, you MUST include citation numbers [1], [2], [3] when referencing specific commentary insights
+   - Simply add the citation number at the end of sentences or phrases that reference commentary insights
+   - MANDATORY: Extract insightful verbatim quotes from commentaries for each verse
    - Key Greek/Hebrew word insights where mentioned in commentaries (with citations)
    - Cross-references to related passages
    - Theological insights from the ${selectedStance.name} perspective
@@ -740,6 +799,13 @@ ${isChinese ? `{
       "verse": "经文章节",
       "text": "经文内容（中文）",
       "explanation": "基于注释书的详细解释（中文）",
+      "verbatimQuotes": [
+        {
+          "quote": "逐字引用的注释内容",
+          "commentary": "注释书名称",
+          "author": "作者姓名"
+        }
+      ],
       "keyInsights": ["要点1（中文）", "要点2（中文）"],
       "crossReferences": ["参考经文1", "参考经文2"]
     }
@@ -780,6 +846,13 @@ ${isChinese ? `{
       "verse": "Verse reference",
       "text": "Verse text",
       "explanation": "Detailed explanation based on commentaries",
+      "verbatimQuotes": [
+        {
+          "quote": "Exact quote from commentary",
+          "commentary": "Commentary name",
+          "author": "Author name"
+        }
+      ],
       "keyInsights": ["insight1", "insight2"],
       "crossReferences": ["ref1", "ref2"]
     }
@@ -808,7 +881,14 @@ ${isChinese ? `{
   ]
 }`}
 
-DO NOT OUTPUT ANYTHING OTHER THAN VALID JSON. DON'T INCLUDE LEADING BACKTICKS LIKE \`\`\`json.`;
+CRITICAL JSON FORMATTING REQUIREMENTS:
+- DO NOT OUTPUT ANYTHING OTHER THAN VALID JSON
+- DON'T INCLUDE LEADING BACKTICKS LIKE \`\`\`json
+- ESCAPE ALL QUOTATION MARKS: Any quote marks (both English " and Chinese "引号") within JSON string values MUST be escaped with backslashes (\")
+- This includes quotes in explanations, verbatim quotes, commentary text, and ALL other string content
+- Example: "这里的\\"沉沦\\"不是指" instead of "这里的"沉沦"不是指"
+- Make sure the JSON is complete and properly closed with all brackets and braces
+- If the response is getting too long, prioritize completing the JSON structure over adding more content`;
 
     // Step 5: Generate study guide with Claude
     console.log('Generating study guide with Claude...');
@@ -837,10 +917,28 @@ DO NOT OUTPUT ANYTHING OTHER THAN VALID JSON. DON'T INCLUDE LEADING BACKTICKS LI
         responseText = responseText.replace(/^```\s*/, '').replace(/\s*```$/, '');
       }
       
+      // Check if response was truncated (ends mid-JSON)
+      if (!responseText.endsWith('}')) {
+        console.error('Response appears truncated. Last 100 chars:', responseText.slice(-100));
+        throw new Error('Study guide response was truncated. Please try with fewer verses or contact support.');
+      }
+      
       studyData = JSON.parse(responseText);
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
       console.error('Claude response that failed to parse:', response.content[0].text);
+      
+      // Try to identify the specific issue
+      if (parseError.message.includes('Expected')) {
+        const match = parseError.message.match(/position (\d+)/);
+        if (match) {
+          const position = parseInt(match[1]);
+          const start = Math.max(0, position - 50);
+          const end = Math.min(response.content[0].text.length, position + 50);
+          console.error('Error context:', response.content[0].text.substring(start, end));
+        }
+      }
+      
       throw new Error('Failed to parse study guide response. The AI response may be incomplete or malformed.');
     }
     
