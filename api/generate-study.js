@@ -203,7 +203,8 @@ Using the above commentaries as your primary source material, create a detailed 
    - MANDATORY VERSE LIST: You must include these specific verses: ${parsedVerse.endVerse ? Array.from({length: parsedVerse.endVerse - parsedVerse.startVerse + 1}, (_, i) => `${parsedVerse.chapter}:${parsedVerse.startVerse + i}`).join(', ') : `${parsedVerse.chapter}:${parsedVerse.startVerse}`}
    - Base explanations on the provided commentaries
    - CRITICAL CITATION REQUIREMENT: Throughout the explanation text, you MUST include citation numbers [1], [2], [3] when referencing specific commentary insights
-   - Simply add the citation number at the end of sentences or phrases that reference commentary insights
+   - IMPORTANT: Place citation numbers AT THE END of sentences or phrases, NOT at the beginning
+   - Example: "保罗指出这个重要原则 [1]" NOT "[1] 保罗指出这个重要原则"
    - MANDATORY: Extract insightful verbatim quotes from commentaries for each verse
    - Key Greek/Hebrew word insights where mentioned in commentaries (with citations)
    - Cross-references to related passages
