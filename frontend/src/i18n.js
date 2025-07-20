@@ -41,6 +41,10 @@ const resources = {
         "specifyChapter": "Please specify chapter and verses, not just the book.",
         "invalidFormat": "Invalid verse format.",
         "unknownBook": "Unknown book name.",
+        "invalidChapter": "Invalid chapter number for this book.",
+        "invalidStartVerse": "Invalid start verse number for this chapter.",
+        "invalidEndVerse": "Invalid end verse number for this chapter.", 
+        "invalidVerseRange": "Start verse cannot be greater than end verse.",
         "tooManyVerses": "Too many verses selected. Please select fewer verses.",
         "serverError": "Failed to generate study guide. Please try again."
       },
@@ -157,6 +161,10 @@ const resources = {
         "specifyChapter": "请指定章节和经文，不只是书卷。",
         "invalidFormat": "经文格式无效。",
         "unknownBook": "未知的书卷名称。",
+        "invalidChapter": "此书卷的章节号无效。",
+        "invalidStartVerse": "此章节的起始节数无效。",
+        "invalidEndVerse": "此章节的结束节数无效。",
+        "invalidVerseRange": "起始节不能大于结束节。",
         "tooManyVerses": "选择的经文太多，请选择较少的经文。",
         "serverError": "生成学习指南失败，请重试。"
       },
