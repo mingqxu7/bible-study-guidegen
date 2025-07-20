@@ -6,6 +6,15 @@
     "api/generate-study.js": {
       "maxDuration": 60
     },
+    "api/generate-study-stream.js": {
+      "maxDuration": 60
+    },
+    "api/generate-reference-answer.js": {
+      "maxDuration": 30
+    },
+    "api/translate-quote.js": {
+      "maxDuration": 30
+    },
     "api/health.js": {
       "maxDuration": 10
     }
