@@ -5,6 +5,487 @@ import { useTranslation } from 'react-i18next';
 // Use relative path for API which works for both development (with Vite proxy) and production (Vercel)
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
+// Bible Reference Hover Component
+const BibleReferenceHover = ({ children, language = 'en' }) => {
+  const [hoverData, setHoverData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const timeoutRef = useRef(null);
+
+  // Bible book name mappings
+  const bookMapping = {
+    // English books
+    'genesis': 1, 'gen': 1, 'ge': 1, 'gn': 1,
+    'exodus': 2, 'exod': 2, 'ex': 2, 'exo': 2,
+    'leviticus': 3, 'lev': 3, 'le': 3, 'lv': 3,
+    'numbers': 4, 'num': 4, 'nu': 4, 'nm': 4, 'nb': 4,
+    'deuteronomy': 5, 'deut': 5, 'de': 5, 'dt': 5,
+    'joshua': 6, 'josh': 6, 'jos': 6, 'jsh': 6,
+    'judges': 7, 'judg': 7, 'jdg': 7, 'jg': 7, 'jdgs': 7,
+    'ruth': 8, 'rth': 8, 'ru': 8,
+    '1 samuel': 9, '1sam': 9, '1sm': 9, '1sa': 9, '1 sam': 9, 'i samuel': 9,
+    '2 samuel': 10, '2sam': 10, '2sm': 10, '2sa': 10, '2 sam': 10, 'ii samuel': 10,
+    '1 kings': 11, '1kgs': 11, '1kg': 11, '1ki': 11, 'i kings': 11,
+    '2 kings': 12, '2kgs': 12, '2kg': 12, '2ki': 12, 'ii kings': 12,
+    '1 chronicles': 13, '1chron': 13, '1ch': 13, '1chr': 13, '1 chron': 13, 'i chronicles': 13,
+    '2 chronicles': 14, '2chron': 14, '2ch': 14, '2chr': 14, '2 chron': 14, 'ii chronicles': 14,
+    'ezra': 15, 'ezr': 15, 'ez': 15,
+    'nehemiah': 16, 'neh': 16, 'ne': 16,
+    'esther': 17, 'esth': 17, 'es': 17,
+    'job': 18, 'jb': 18,
+    'psalms': 19, 'psalm': 19, 'ps': 19, 'psa': 19, 'psm': 19, 'pss': 19,
+    'proverbs': 20, 'prov': 20, 'pr': 20, 'prv': 20,
+    'ecclesiastes': 21, 'eccles': 21, 'eccl': 21, 'ec': 21, 'ecc': 21,
+    'song of songs': 22, 'song': 22, 'so': 22, 'sos': 22, 'canticle': 22, 'canticles': 22,
+    'isaiah': 23, 'isa': 23, 'is': 23,
+    'jeremiah': 24, 'jer': 24, 'je': 24, 'jr': 24,
+    'lamentations': 25, 'lam': 25, 'la': 25,
+    'ezekiel': 26, 'ezek': 26, 'eze': 26, 'ezk': 26,
+    'daniel': 27, 'dan': 27, 'da': 27, 'dn': 27,
+    'hosea': 28, 'hos': 28, 'ho': 28,
+    'joel': 29, 'joe': 29, 'jl': 29,
+    'amos': 30, 'am': 30,
+    'obadiah': 31, 'obad': 31, 'ob': 31,
+    'jonah': 32, 'jnh': 32, 'jon': 32,
+    'micah': 33, 'mic': 33, 'mc': 33,
+    'nahum': 34, 'nah': 34, 'na': 34,
+    'habakkuk': 35, 'hab': 35, 'hb': 35,
+    'zephaniah': 36, 'zeph': 36, 'zep': 36, 'zp': 36,
+    'haggai': 37, 'hag': 37, 'hg': 37,
+    'zechariah': 38, 'zech': 38, 'zec': 38, 'zc': 38,
+    'malachi': 39, 'mal': 39, 'ml': 39,
+    'matthew': 40, 'matt': 40, 'mt': 40,
+    'mark': 41, 'mk': 41, 'mar': 41,
+    'luke': 42, 'lk': 42, 'luk': 42,
+    'john': 43, 'jn': 43, 'joh': 43,
+    'acts': 44, 'ac': 44, 'act': 44,
+    'romans': 45, 'rom': 45, 'ro': 45, 'rm': 45,
+    '1 corinthians': 46, '1cor': 46, '1co': 46, '1 cor': 46, 'i corinthians': 46,
+    '2 corinthians': 47, '2cor': 47, '2co': 47, '2 cor': 47, 'ii corinthians': 47,
+    'galatians': 48, 'gal': 48, 'ga': 48,
+    'ephesians': 49, 'eph': 49, 'ep': 49,
+    'philippians': 50, 'phil': 50, 'php': 50, 'pp': 50,
+    'colossians': 51, 'col': 51, 'co': 51,
+    '1 thessalonians': 52, '1thess': 52, '1th': 52, '1 thess': 52, 'i thessalonians': 52,
+    '2 thessalonians': 53, '2thess': 53, '2th': 53, '2 thess': 53, 'ii thessalonians': 53,
+    '1 timothy': 54, '1tim': 54, '1ti': 54, '1 tim': 54, 'i timothy': 54,
+    '2 timothy': 55, '2tim': 55, '2ti': 55, '2 tim': 55, 'ii timothy': 55,
+    'titus': 56, 'tit': 56, 'ti': 56,
+    'philemon': 57, 'phlm': 57, 'phm': 57,
+    'hebrews': 58, 'heb': 58, 'he': 58,
+    'james': 59, 'jas': 59, 'jm': 59,
+    '1 peter': 60, '1pet': 60, '1pe': 60, '1 pet': 60, 'i peter': 60,
+    '2 peter': 61, '2pet': 61, '2pe': 61, '2 pet': 61, 'ii peter': 61,
+    '1 john': 62, '1jn': 62, '1jo': 62, 'i john': 62,
+    '2 john': 63, '2jn': 63, '2jo': 63, 'ii john': 63,
+    '3 john': 64, '3jn': 64, '3jo': 64, 'iii john': 64,
+    'jude': 65, 'jd': 65,
+    'revelation': 66, 'rev': 66, 're': 66,
+    // Chinese books
+    '创': 1, '创世记': 1, '创世纪': 1,
+    '出': 2, '出埃及记': 2,
+    '利': 3, '利未记': 3,
+    '民': 4, '民数记': 4,
+    '申': 5, '申命记': 5,
+    '书': 6, '约书亚记': 6,
+    '士': 7, '士师记': 7,
+    '得': 8, '路得记': 8,
+    '撒上': 9, '撒母耳记上': 9,
+    '撒下': 10, '撒母耳记下': 10,
+    '王上': 11, '列王纪上': 11,
+    '王下': 12, '列王纪下': 12,
+    '代上': 13, '历代志上': 13,
+    '代下': 14, '历代志下': 14,
+    '拉': 15, '以斯拉记': 15,
+    '尼': 16, '尼希米记': 16,
+    '斯': 17, '以斯帖记': 17,
+    '伯': 18, '约伯记': 18,
+    '诗': 19, '诗篇': 19,
+    '箴': 20, '箴言': 20,
+    '传': 21, '传道书': 21,
+    '歌': 22, '雅歌': 22,
+    '赛': 23, '以赛亚书': 23,
+    '耶': 24, '耶利米书': 24,
+    '哀': 25, '耶利米哀歌': 25,
+    '结': 26, '以西结书': 26,
+    '但': 27, '但以理书': 27,
+    '何': 28, '何西阿书': 28,
+    '珥': 29, '约珥书': 29,
+    '摩': 30, '阿摩司书': 30,
+    '俄': 31, '俄巴底亚书': 31,
+    '拿': 32, '约拿书': 32,
+    '弥': 33, '弥迦书': 33,
+    '鸿': 34, '那鸿书': 34,
+    '哈': 35, '哈巴谷书': 35,
+    '番': 36, '西番雅书': 36,
+    '该': 37, '哈该书': 37,
+    '亚': 38, '撒迦利亚书': 38,
+    '玛': 39, '玛拉基书': 39,
+    '太': 40, '马太福音': 40,
+    '可': 41, '马可福音': 41,
+    '路': 42, '路加福音': 42,
+    '约': 43, '约翰福音': 43,
+    '徒': 44, '使徒行传': 44,
+    '罗': 45, '罗马书': 45,
+    '林前': 46, '哥林多前书': 46,
+    '林后': 47, '哥林多后书': 47,
+    '加': 48, '加拉太书': 48,
+    '弗': 49, '以弗所书': 49,
+    '腓': 50, '腓立比书': 50,
+    '西': 51, '歌罗西书': 51,
+    '帖前': 52, '帖撒罗尼迦前书': 52,
+    '帖后': 53, '帖撒罗尼迦后书': 53,
+    '提前': 54, '提摩太前书': 54,
+    '提后': 55, '提摩太后书': 55,
+    '多': 56, '提多书': 56,
+    '门': 57, '腓利门书': 57,
+    '来': 58, '希伯来书': 58,
+    '雅': 59, '雅各书': 59,
+    '彼前': 60, '彼得前书': 60,
+    '彼后': 61, '彼得后书': 61,
+    '约一': 62, '约翰一书': 62,
+    '约二': 63, '约翰二书': 63,
+    '约三': 64, '约翰三书': 64,
+    '犹': 65, '犹大书': 65,
+    '启': 66, '启示录': 66
+  };
+
+  // Parse Bible reference from text
+  const parseBibleReference = (text) => {
+    // Match patterns like "John 3:16", "Matthew 5:1-12", "太 3:16", "约一 2:1-3"
+    const patterns = [
+      // English: "John 3:16", "1 Corinthians 13:4-8"
+      /\b(\d*\s*[A-Za-z]+(?:\s+[A-Za-z]+)*)\s+(\d+):(\d+)(?:-(\d+))?\b/g,
+      // Chinese: "太 3:16", "林前 13:4-8", "约一 2:1"
+      /([\u4e00-\u9fff]+)\s*(\d+):(\d+)(?:-(\d+))?/g,
+      // Chinese with colon: "太：3:16"
+      /([\u4e00-\u9fff]+)[：:]\s*(\d+):(\d+)(?:-(\d+))?/g
+    ];
+
+    for (const pattern of patterns) {
+      const match = pattern.exec(text);
+      if (match) {
+        const [, bookName, chapter, startVerse, endVerse] = match;
+        const normalizedBook = bookName.toLowerCase().trim();
+        const bookNumber = bookMapping[normalizedBook];
+        
+        if (bookNumber) {
+          return {
+            book: bookNumber,
+            chapter: parseInt(chapter),
+            startVerse: parseInt(startVerse),
+            endVerse: endVerse ? parseInt(endVerse) : null,
+            original: match[0]
+          };
+        }
+      }
+    }
+    return null;
+  };
+
+  // Fetch Bible text from Bolls API
+  const fetchBibleText = async (book, chapter, startVerse, endVerse) => {
+    try {
+      const version = language.startsWith('zh') ? 'CUV' : 'ESV';
+      const url = `https://bolls.life/get-text/${version}/${book}/${chapter}/`;
+      
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch');
+      
+      const data = await response.json();
+      
+      // Filter to specific verses if needed
+      let verses = data;
+      if (startVerse) {
+        verses = data.filter(v => {
+          const verseNum = v.verse;
+          if (endVerse) {
+            return verseNum >= startVerse && verseNum <= endVerse;
+          }
+          return verseNum === startVerse;
+        });
+      }
+      
+      return verses.map(v => `${v.verse}. ${v.text}`).join(' ');
+    } catch (error) {
+      console.error('Error fetching Bible text:', error);
+      return 'Failed to load verse text';
+    }
+  };
+
+  // Handle mouse enter on Bible reference
+  const handleMouseEnter = async (e, referenceText) => {
+    const reference = parseBibleReference(referenceText);
+    if (!reference) return;
+
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Smart positioning logic - position tooltip very close to the reference
+    const rect = e.target.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const tooltipWidth = 400;
+    const tooltipMaxHeight = 300;
+    
+    // Calculate position right below the reference text with no gap
+    let x = rect.left + window.scrollX;
+    let y = rect.bottom + window.scrollY; // No gap - directly below
+    
+    // Adjust horizontal position to keep tooltip on screen
+    if (x + tooltipWidth > viewportWidth + window.scrollX) {
+      x = Math.max(10, viewportWidth + window.scrollX - tooltipWidth - 10);
+    }
+    
+    // Adjust vertical position - show above if not enough space below
+    const spaceBelow = viewportHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    
+    if (spaceBelow < tooltipMaxHeight && spaceAbove > spaceBelow) {
+      // Show above the reference with no gap
+      y = rect.top + window.scrollY;
+    }
+
+    setPosition({ x, y });
+
+    setIsLoading(true);
+    setHoverData({ reference, text: '', showAbove: spaceBelow < tooltipMaxHeight && spaceAbove > spaceBelow });
+
+    try {
+      const text = await fetchBibleText(
+        reference.book,
+        reference.chapter,
+        reference.startVerse,
+        reference.endVerse
+      );
+      setHoverData({ reference, text, showAbove: spaceBelow < tooltipMaxHeight && spaceAbove > spaceBelow });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle mouse leave
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => {
+      setHoverData(null);
+      setIsLoading(false);
+    }, 300); // Small delay to allow moving to tooltip
+  };
+
+  // Handle mouse enter on tooltip
+  const handleTooltipEnter = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+  };
+
+  // Handle mouse leave on tooltip
+  const handleTooltipLeave = () => {
+    setHoverData(null);
+    setIsLoading(false);
+  };
+
+  // Process children to add hover functionality to Bible references
+  const processText = (text) => {
+    if (typeof text !== 'string') return text;
+
+    const patterns = [
+      /\b(\d*\s*[A-Za-z]+(?:\s+[A-Za-z]+)*)\s+(\d+):(\d+)(?:-(\d+))?\b/g,
+      /([\u4e00-\u9fff]+)\s*(\d+):(\d+)(?:-(\d+))?/g,
+      /([\u4e00-\u9fff]+)[：:]\s*(\d+):(\d+)(?:-(\d+))?/g
+    ];
+
+    const references = [];
+    
+    for (const pattern of patterns) {
+      let match;
+      pattern.lastIndex = 0; // Reset regex state
+      while ((match = pattern.exec(text)) !== null) {
+        const [fullMatch, bookName] = match;
+        const normalizedBook = bookName.toLowerCase().trim();
+        if (bookMapping[normalizedBook]) {
+          references.push({
+            text: fullMatch,
+            start: match.index,
+            end: match.index + fullMatch.length
+          });
+        }
+      }
+    }
+
+    if (references.length === 0) return text;
+
+    // Sort by start position and merge overlapping references
+    references.sort((a, b) => a.start - b.start);
+    const mergedRefs = [];
+    for (const ref of references) {
+      if (mergedRefs.length === 0 || ref.start >= mergedRefs[mergedRefs.length - 1].end) {
+        mergedRefs.push(ref);
+      }
+    }
+
+    // Build the result with hoverable spans
+    const result = [];
+    let lastIndex = 0;
+
+    mergedRefs.forEach((ref, i) => {
+      // Add text before reference
+      if (ref.start > lastIndex) {
+        result.push(text.substring(lastIndex, ref.start));
+      }
+
+      // Add hoverable reference
+      result.push(
+        <span
+          key={`ref-${i}`}
+          className="text-blue-600 underline cursor-pointer hover:text-blue-800 transition-colors"
+          onMouseEnter={(e) => handleMouseEnter(e, ref.text)}
+          onMouseLeave={handleMouseLeave}
+          title="Hover to see verse text"
+        >
+          {ref.text}
+        </span>
+      );
+
+      lastIndex = ref.end;
+    });
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      result.push(text.substring(lastIndex));
+    }
+
+    return result;
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <>
+      {typeof children === 'string' ? processText(children) : children}
+      
+      {/* Tooltip */}
+      {(hoverData || isLoading) && (
+        <div
+          className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-xl p-4"
+          style={{
+            left: position.x,
+            top: position.y,
+            transform: hoverData?.showAbove ? 'translateY(-100%)' : 'translateY(0)',
+            width: '400px',
+            maxWidth: '90vw',
+            maxHeight: '300px',
+            marginTop: hoverData?.showAbove ? '0' : '0',
+            marginBottom: hoverData?.showAbove ? '0' : '0'
+          }}
+          onMouseEnter={handleTooltipEnter}
+          onMouseLeave={handleTooltipLeave}
+        >
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {language.startsWith('zh') ? '加载经文...' : 'Loading verse...'}
+            </div>
+          ) : hoverData ? (
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-semibold text-sm text-blue-700 bg-blue-50 px-2 py-1 rounded">
+                  {hoverData.reference.original}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {language.startsWith('zh') ? 'CUV' : 'ESV'}
+                </div>
+              </div>
+              <div 
+                className="text-sm text-gray-700 leading-relaxed overflow-y-auto"
+                style={{ maxHeight: '240px' }}
+              >
+                {hoverData.text ? (
+                  <div className="space-y-2">
+                    {(() => {
+                      // Better verse parsing: split by space followed by digit(s) followed by period and space
+                      // This ensures we capture complete verse numbers like "10." not just "0."
+                      const verses = [];
+                      const versePattern = /(\d+)\.\s+([^]*?)(?=\s+\d+\.\s|$)/g;
+                      let match;
+                      
+                      while ((match = versePattern.exec(hoverData.text)) !== null) {
+                        verses.push({
+                          number: match[1],
+                          text: match[2].trim()
+                        });
+                      }
+                      
+                      // Fallback: if no matches found, try simpler split
+                      if (verses.length === 0) {
+                        const simplePattern = /^(\d+)\.\s*(.*)/;
+                        const singleMatch = hoverData.text.match(simplePattern);
+                        if (singleMatch) {
+                          verses.push({
+                            number: singleMatch[1],
+                            text: singleMatch[2].trim()
+                          });
+                        }
+                      }
+                      
+                      return verses.map((verse, index) => (
+                        <div key={index} className="pb-2 border-l-2 border-blue-100 pl-3">
+                          <div className="block">
+                            <span className="font-semibold text-blue-600 mr-2">
+                              {verse.number}.
+                            </span>
+                            <span className="text-gray-700">
+                              {verse.text}
+                            </span>
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                ) : (
+                  <div className="text-gray-500 italic">
+                    {language.startsWith('zh') ? '未找到经文' : 'No text available'}
+                  </div>
+                )}
+              </div>
+              {/* Small arrow indicator pointing to the reference */}
+              {hoverData.showAbove ? (
+                <div 
+                  className="absolute bottom-0 left-6 transform translate-y-full"
+                >
+                  <div className="w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-gray-300"></div>
+                  <div 
+                    className="absolute w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-white"
+                    style={{ left: '-2px', top: '-1px' }}
+                  ></div>
+                </div>
+              ) : (
+                <div 
+                  className="absolute top-0 left-6 transform -translate-y-full"
+                >
+                  <div className="w-0 h-0 border-l-2 border-r-2 border-b-2 border-transparent border-b-gray-300"></div>
+                  <div 
+                    className="absolute w-0 h-0 border-l-2 border-r-2 border-b-2 border-transparent border-b-white"
+                    style={{ left: '-2px', bottom: '-1px' }}
+                  ></div>
+                </div>
+              )}
+            </>
+          ) : null}
+        </div>
+      )}
+    </>
+  );
+};
+
 // Simple Markdown to HTML parser for reference answers
 const parseMarkdownToHTML = (markdown) => {
   if (!markdown) return '';
@@ -248,6 +729,18 @@ const BibleStudyCreator = () => {
     }
     if (errorMessage.includes('Invalid verse format') || errorMessage.includes('经文格式无效')) {
       return t('errors.invalidFormat');
+    }
+    if (errorMessage.includes('Invalid chapter number') || errorMessage.includes('无效的章节号')) {
+      return t('errors.invalidChapter');
+    }
+    if (errorMessage.includes('Invalid start verse') || errorMessage.includes('无效的起始节数')) {
+      return t('errors.invalidStartVerse');
+    }
+    if (errorMessage.includes('Invalid end verse') || errorMessage.includes('无效的结束节数')) {
+      return t('errors.invalidEndVerse');
+    }
+    if (errorMessage.includes('Invalid verse range') || errorMessage.includes('无效的经文范围')) {
+      return t('errors.invalidVerseRange');
     }
     if (errorMessage.includes('exceeds the maximum limit') || errorMessage.includes('超过了最大限制')) {
       // Extract the verse limit from the error message if available
@@ -1282,7 +1775,11 @@ const BibleStudyCreator = () => {
                         {verse.crossReferences && Array.isArray(verse.crossReferences) && verse.crossReferences.length > 0 && (
                           <div>
                             <h6 className="font-semibold text-gray-800 mb-1">{t('crossReferences')}</h6>
-                            <p className="text-sm text-gray-600">{verse.crossReferences.join(' • ')}</p>
+                            <div className="text-sm text-gray-600">
+                              <BibleReferenceHover language={i18n.language}>
+                                {verse.crossReferences.join(' • ')}
+                              </BibleReferenceHover>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1419,7 +1916,11 @@ const BibleStudyCreator = () => {
                       {studyGuide.additionalResources.crossReferences && Array.isArray(studyGuide.additionalResources.crossReferences) && studyGuide.additionalResources.crossReferences.length > 0 && (
                         <div>
                           <h5 className="font-semibold text-gray-800 mb-2">{t('crossReferences')}</h5>
-                          <p className="text-gray-700">{studyGuide.additionalResources.crossReferences.join(' • ')}</p>
+                          <div className="text-gray-700">
+                            <BibleReferenceHover language={i18n.language}>
+                              {studyGuide.additionalResources.crossReferences.join(' • ')}
+                            </BibleReferenceHover>
+                          </div>
                         </div>
                       )}
                       {studyGuide.additionalResources.memoryVerses && Array.isArray(studyGuide.additionalResources.memoryVerses) && studyGuide.additionalResources.memoryVerses.length > 0 && (
