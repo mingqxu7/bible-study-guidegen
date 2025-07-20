@@ -1,9 +1,39 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Book, Search, Download, Users, Cross, MessageSquare, Globe, CheckCircle, Clock, AlertCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Book, Search, Download, Users, Cross, MessageSquare, Globe, CheckCircle, Clock, AlertCircle, Loader2, ChevronDown, ChevronUp, HelpCircle, Languages } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 // Use relative path for API which works for both development (with Vite proxy) and production (Vercel)
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+
+// Simple Markdown to HTML parser for reference answers
+const parseMarkdownToHTML = (markdown) => {
+  if (!markdown) return '';
+  
+  let html = markdown;
+  
+  // Convert headers
+  html = html.replace(/^### (.*$)/gim, '<h3 class="text-base font-semibold text-gray-800 mt-4 mb-2">$1</h3>');
+  html = html.replace(/^## (.*$)/gim, '<h2 class="text-lg font-bold text-gray-900 mt-5 mb-3">$1</h2>');
+  html = html.replace(/^# (.*$)/gim, '<h1 class="text-xl font-bold text-gray-900 mt-6 mb-4">$1</h1>');
+  
+  // Convert bold text
+  html = html.replace(/\*\*(.*)\*\*/gim, '<strong class="font-semibold text-gray-800">$1</strong>');
+  
+  // Convert italic text
+  html = html.replace(/\*(.*)\*/gim, '<em class="italic">$1</em>');
+  
+  // Convert line breaks and paragraphs
+  html = html.replace(/\n\n/g, '</p><p class="mb-3">');
+  html = html.replace(/\n/g, '<br>');
+  
+  // Wrap in paragraph tags
+  html = '<p class="mb-3">' + html + '</p>';
+  
+  // Clean up empty paragraphs
+  html = html.replace(/<p class="mb-3"><\/p>/g, '');
+  
+  return html;
+};
 
 
 const BibleStudyCreator = () => {
@@ -19,6 +49,12 @@ const BibleStudyCreator = () => {
   const [showStreamingContent, setShowStreamingContent] = useState(false);
   const [selectedCommentaries, setSelectedCommentaries] = useState({});
   const [expandedTheology, setExpandedTheology] = useState(null);
+  const [referenceAnswers, setReferenceAnswers] = useState({});
+  const [loadingAnswers, setLoadingAnswers] = useState({});
+  const [expandedAnswers, setExpandedAnswers] = useState({});
+  const [quoteTranslations, setQuoteTranslations] = useState({});
+  const [loadingTranslations, setLoadingTranslations] = useState({});
+  const [showTranslation, setShowTranslation] = useState({});
   const studyGuideRef = useRef(null);
   const streamingContentRef = useRef(null);
   const MAX_COMMENTARIES = 3;
@@ -78,6 +114,125 @@ const BibleStudyCreator = () => {
         </div>
       </div>
     );
+  };
+
+  // Function to translate verbatim quote to Chinese
+  const translateQuote = async (quoteId, quote, commentary, author) => {
+    console.log('translateQuote called with:', { quoteId, quote, commentary, author });
+    if (!studyGuide) {
+      console.log('No study guide available');
+      return;
+    }
+    
+    setLoadingTranslations(prev => ({ ...prev, [quoteId]: true }));
+
+    try {
+      console.log('Making API call to translate quote');
+      const response = await fetch(`${API_BASE_URL}/translate-quote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          quote,
+          commentary,
+          author,
+          passage: studyGuide.passage,
+          theology: studyGuide.theology
+        }),
+      });
+
+      console.log('Translation response status:', response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Translation API error response:', errorText);
+        throw new Error('Failed to translate quote');
+      }
+
+      const data = await response.json();
+      console.log('Translation API response data:', data);
+      
+      setQuoteTranslations(prev => ({ 
+        ...prev, 
+        [quoteId]: data.translation 
+      }));
+      
+      setShowTranslation(prev => ({ 
+        ...prev, 
+        [quoteId]: true 
+      }));
+
+    } catch (error) {
+      console.error('Error translating quote:', error);
+      setError(t('translationFailed'));
+    } finally {
+      setLoadingTranslations(prev => ({ ...prev, [quoteId]: false }));
+    }
+  };
+
+  // Function to generate reference answer for a discussion question
+  const generateReferenceAnswer = async (questionIndex, question) => {
+    console.log('generateReferenceAnswer called with:', { questionIndex, question });
+    if (!studyGuide) {
+      console.log('No study guide available');
+      return;
+    }
+    
+    const answerKey = `${questionIndex}`;
+    console.log('Setting loading state for answer key:', answerKey);
+    setLoadingAnswers(prev => ({ ...prev, [answerKey]: true }));
+
+    try {
+      // Gather context for the LLM
+      const verseText = studyGuide.exegesis?.map(v => `${v.verse}: "${v.text}"`).join('\n') || '';
+      const exegesis = studyGuide.exegesis?.map(v => `${v.verse}: ${v.explanation}`).join('\n\n') || '';
+      const commentary = studyGuide.commentariesUsed?.map(c => `${c.name} by ${c.author}`).join(', ') || '';
+      
+      console.log('Making API call to:', `${API_BASE_URL}/generate-reference-answer`);
+      console.log('Request payload:', { question, passage: studyGuide.passage, verseText, theology: studyGuide.theology, commentary, language: i18n.language, exegesis });
+      
+      const response = await fetch(`${API_BASE_URL}/generate-reference-answer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          question,
+          passage: studyGuide.passage,
+          verseText,
+          theology: studyGuide.theology,
+          commentary,
+          language: i18n.language,
+          exegesis
+        }),
+      });
+
+      console.log('Response status:', response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API error response:', errorText);
+        throw new Error('Failed to generate reference answer');
+      }
+
+      const data = await response.json();
+      console.log('API response data:', data);
+      
+      setReferenceAnswers(prev => ({ 
+        ...prev, 
+        [answerKey]: data.referenceAnswer 
+      }));
+      
+      setExpandedAnswers(prev => ({ 
+        ...prev, 
+        [answerKey]: true 
+      }));
+
+    } catch (error) {
+      console.error('Error generating reference answer:', error);
+      setError(t('answerGenerationFailed'));
+    } finally {
+      setLoadingAnswers(prev => ({ ...prev, [answerKey]: false }));
+    }
   };
 
   // Function to translate error messages from backend
@@ -179,6 +334,12 @@ const BibleStudyCreator = () => {
     setCurrentStep(null);
     setStreamingContent('');
     setShowStreamingContent(false);
+    setReferenceAnswers({});
+    setLoadingAnswers({});
+    setExpandedAnswers({});
+    setQuoteTranslations({});
+    setLoadingTranslations({});
+    setShowTranslation({});
 
     try {
       const urlParams = new URLSearchParams({
@@ -553,11 +714,27 @@ const BibleStudyCreator = () => {
         htmlContent += `<div class="section"><h2>${t('discussionQuestions')}</h2>`;
         
         studyGuide.discussionQuestions.forEach((question, index) => {
+          const answerKey = `${index}`;
           htmlContent += `
-            <div style="margin-bottom: 10px;">
-              <span class="question-number">${index + 1}.</span> ${safeString(question)}
-            </div>
+            <div style="margin-bottom: 20px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px;">
+              <div style="margin-bottom: 10px;">
+                <span class="question-number">${index + 1}.</span> ${safeString(question)}
+              </div>
           `;
+          
+          // Include reference answer if it exists
+          if (referenceAnswers[answerKey]) {
+            htmlContent += `
+              <div style="margin-top: 15px; padding: 15px; border-left: 3px solid #3498db; background-color: #f8f9fa; border-radius: 4px;">
+                <h4 style="color: #2980b9; font-size: 14px; margin: 0 0 10px 0;">${t('referenceAnswer')}</h4>
+                <div style="color: #333; font-size: 12px; line-height: 1.6;">
+                  ${parseMarkdownToHTML(safeString(referenceAnswers[answerKey]))}
+                </div>
+              </div>
+            `;
+          }
+          
+          htmlContent += `</div>`;
         });
         
         htmlContent += `</div>`;
@@ -1041,16 +1218,64 @@ const BibleStudyCreator = () => {
                           <div className="mb-3">
                             <h6 className="font-semibold text-gray-800 mb-2">{t('commentaryQuotes') || 'Commentary Quotes'}</h6>
                             <div className="space-y-2">
-                              {verse.verbatimQuotes.map((quote, i) => (
-                                <div key={i} className="bg-gray-50 border-l-4 border-indigo-500 pl-4 pr-3 py-3 rounded-r">
-                                  <blockquote className="italic text-gray-700 mb-2">
-                                    "{quote.quote}"
-                                  </blockquote>
-                                  <p className="text-sm text-gray-600">
-                                    — {quote.author}, <em>{quote.commentary}</em>
-                                  </p>
-                                </div>
-                              ))}
+                              {verse.verbatimQuotes.map((quote, i) => {
+                                const quoteId = `${index}-${i}`;
+                                return (
+                                  <div key={i} className="bg-gray-50 border-l-4 border-indigo-500 pl-4 pr-3 py-3 rounded-r">
+                                    <div className="flex items-start justify-between mb-2">
+                                      <blockquote className="italic text-gray-700 flex-1">
+                                        {showTranslation[quoteId] && quoteTranslations[quoteId] ? (
+                                          <span className="not-italic text-gray-800">"{quoteTranslations[quoteId]}"</span>
+                                        ) : (
+                                          <span>"{quote.quote}"</span>
+                                        )}
+                                      </blockquote>
+                                      {i18n.language === 'zh' && (
+                                        <button
+                                          onClick={() => {
+                                            console.log('Translation button clicked for quote:', quoteId);
+                                            console.log('Current translation state:', { showTranslation: showTranslation[quoteId], hasTranslation: !!quoteTranslations[quoteId] });
+                                            if (quoteTranslations[quoteId]) {
+                                              // Translation exists in memory - just toggle display
+                                              console.log('Translation exists in memory, toggling display');
+                                              setShowTranslation(prev => ({ 
+                                                ...prev, 
+                                                [quoteId]: !prev[quoteId] 
+                                              }));
+                                            } else {
+                                              // First time translation - call API and store
+                                              console.log('No translation in memory, initiating API call');
+                                              translateQuote(quoteId, quote.quote, quote.commentary, quote.author);
+                                            }
+                                          }}
+                                          disabled={loadingTranslations[quoteId]}
+                                          className="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200 rounded hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        >
+                                          {loadingTranslations[quoteId] ? (
+                                            <>
+                                              <Loader2 className="w-3 h-3 animate-spin" />
+                                              {t('translating')}
+                                            </>
+                                          ) : showTranslation[quoteId] && quoteTranslations[quoteId] ? (
+                                            <>
+                                              <Languages className="w-3 h-3" />
+                                              {t('showOriginal')}
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Languages className="w-3 h-3" />
+                                              {t('translateToChinese')}
+                                            </>
+                                          )}
+                                        </button>
+                                      )}
+                                    </div>
+                                    <p className="text-sm text-gray-600">
+                                      — {quote.author}, <em>{quote.commentary}</em>
+                                    </p>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -1071,13 +1296,73 @@ const BibleStudyCreator = () => {
                     <div className="w-1 h-6 bg-indigo-600 rounded"></div>
                     {t('discussionQuestions')}
                   </h4>
-                  <div className="space-y-3">
-                    {studyGuide.discussionQuestions && Array.isArray(studyGuide.discussionQuestions) ? studyGuide.discussionQuestions.map((question, index) => (
-                      <div key={index} className="flex gap-3">
-                        <span className="font-bold text-indigo-600 flex-shrink-0">{index + 1}.</span>
-                        <p className="text-gray-700 leading-relaxed">{typeof question === 'string' ? question : 'Discussion question'}</p>
-                      </div>
-                    )) : <p className="text-gray-500">No discussion questions available</p>}
+                  <div className="space-y-4">
+                    {studyGuide.discussionQuestions && Array.isArray(studyGuide.discussionQuestions) ? studyGuide.discussionQuestions.map((question, index) => {
+                      const answerKey = `${index}`;
+                      return (
+                        <div key={index} className="border border-gray-100 rounded-lg p-4">
+                          <div className="flex items-start gap-3 mb-3">
+                            <span className="font-bold text-indigo-600 flex-shrink-0 mt-1">{index + 1}.</span>
+                            <p className="text-gray-700 leading-relaxed flex-1">{typeof question === 'string' ? question : 'Discussion question'}</p>
+                            <button
+                              onClick={() => {
+                                console.log('Reference answer button clicked for question:', index, question);
+                                console.log('Current referenceAnswers state:', referenceAnswers);
+                                console.log('Answer key:', answerKey);
+                                if (referenceAnswers[answerKey]) {
+                                  console.log('Answer exists, toggling expanded state');
+                                  setExpandedAnswers(prev => ({ 
+                                    ...prev, 
+                                    [answerKey]: !prev[answerKey] 
+                                  }));
+                                } else {
+                                  console.log('Answer does not exist, generating new answer');
+                                  generateReferenceAnswer(index, question);
+                                }
+                              }}
+                              disabled={loadingAnswers[answerKey]}
+                              className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-full hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              {loadingAnswers[answerKey] ? (
+                                <>
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  {t('generatingAnswer')}
+                                </>
+                              ) : (
+                                <>
+                                  <HelpCircle className="w-3 h-3" />
+                                  {i18n.language === 'zh' ? '参考答案' : 'Reference Answer'}
+                                </>
+                              )}
+                            </button>
+                          </div>
+                          
+                          {/* Reference Answer Display */}
+                          {referenceAnswers[answerKey] && expandedAnswers[answerKey] && (
+                            <div className="mt-3 pl-6 border-l-2 border-blue-200 bg-blue-50 rounded-r-lg p-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <h6 className="text-sm font-semibold text-blue-800">{t('referenceAnswer')}</h6>
+                                <button
+                                  onClick={() => setExpandedAnswers(prev => ({ 
+                                    ...prev, 
+                                    [answerKey]: false 
+                                  }))}
+                                  className="text-blue-600 hover:text-blue-800 text-xs"
+                                >
+                                  {t('hideReferenceAnswer')}
+                                </button>
+                              </div>
+                              <div 
+                                className="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none"
+                                dangerouslySetInnerHTML={{ 
+                                  __html: parseMarkdownToHTML(referenceAnswers[answerKey]) 
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }) : <p className="text-gray-500">No discussion questions available</p>}
                   </div>
                 </div>
 

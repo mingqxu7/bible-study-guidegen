@@ -1023,6 +1023,213 @@ CRITICAL JSON FORMATTING REQUIREMENTS:
   }
 });
 
+// Quote translation endpoint
+app.post('/api/translate-quote', async (req, res) => {
+  try {
+    const { 
+      quote, 
+      commentary, 
+      author,
+      passage,
+      theology
+    } = req.body;
+
+    if (!quote) {
+      return res.status(400).json({ 
+        error: '缺少必需的参数' 
+      });
+    }
+
+    const translationPrompt = `请将以下英文圣经注释引用翻译成简体中文。
+
+**原文引用:**
+"${quote}"
+
+**注释书信息:**
+注释书: ${commentary}
+作者: ${author}
+经文: ${passage}
+神学立场: ${theology}
+
+**翻译要求:**
+1. 保持原文的神学准确性和深度
+2. 使用标准的中文圣经神学术语
+3. 确保翻译自然流畅，符合中文表达习惯
+4. 保留原文的语气和强调重点
+5. 如果涉及希腊文或希伯来文词汇，请提供音译和解释
+6. 保持注释的学术性和牧养性质
+
+请只返回翻译后的中文文本，不要包含其他说明。`;
+
+    const message = await anthropic.messages.create({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: translationPrompt }],
+    });
+
+    const translation = message.content[0]?.text || '';
+
+    if (!translation) {
+      return res.status(500).json({ 
+        error: '翻译失败' 
+      });
+    }
+
+    res.json({ 
+      translation: translation.trim(),
+      originalQuote: quote,
+      commentary,
+      author
+    });
+
+  } catch (error) {
+    console.error('Error translating quote:', error);
+    
+    let errorMessage = '翻译失败，请重试';
+    
+    if (error.status === 429) {
+      errorMessage = 'API请求过于频繁，请稍后重试';
+    } else if (error.status === 401) {
+      errorMessage = 'API密钥无效';
+    }
+
+    res.status(500).json({ error: errorMessage });
+  }
+});
+
+// Reference answer generation endpoint
+app.post('/api/generate-reference-answer', async (req, res) => {
+  try {
+    const { 
+      question, 
+      passage, 
+      verseText,
+      theology, 
+      commentary, 
+      language = 'en',
+      exegesis 
+    } = req.body;
+
+    if (!question || !passage) {
+      return res.status(400).json({ 
+        error: language === 'zh' ? '缺少必需的参数' : 'Missing required parameters' 
+      });
+    }
+
+    // Build context for the LLM
+    let contextPrompt = '';
+    
+    if (language === 'zh') {
+      contextPrompt = `作为圣经学者和牧师，请为以下讨论问题提供一个深思熟虑、符合圣经的参考答案。
+
+**经文背景:**
+经文: ${passage}
+${verseText ? `经文内容: "${verseText}"` : ''}
+
+**神学立场:** ${theology}
+
+${exegesis ? `**解经背景:**
+${exegesis}` : ''}
+
+${commentary ? `**注释书见解:**
+${commentary}` : ''}
+
+**讨论问题:**
+${question}
+
+请提供一个包含以下要素的参考答案：
+1. 直接回答问题的核心观点
+2. 相关的圣经经文引用来支持答案
+3. 从${theology}神学立场的角度进行阐释
+4. 实际的生活应用建议
+5. 进一步思考的方向
+
+答案应该：
+- 基于圣经权威
+- 符合${theology}的神学框架
+- 实用且适合小组讨论
+- 长度适中（200-400字）
+- 鼓励进一步的思考和讨论
+
+请用中文回答。`;
+    } else {
+      contextPrompt = `As a biblical scholar and pastor, please provide a thoughtful, biblically-grounded reference answer to the following discussion question.
+
+**Scripture Context:**
+Passage: ${passage}
+${verseText ? `Verse Text: "${verseText}"` : ''}
+
+**Theological Perspective:** ${theology}
+
+${exegesis ? `**Exegetical Background:**
+${exegesis}` : ''}
+
+${commentary ? `**Commentary Insights:**
+${commentary}` : ''}
+
+**Discussion Question:**
+${question}
+
+Please provide a reference answer that includes:
+1. A direct response to the core question
+2. Relevant biblical cross-references to support the answer
+3. Interpretation from the ${theology} theological perspective
+4. Practical life application suggestions
+5. Directions for further reflection
+
+The answer should be:
+- Grounded in biblical authority
+- Consistent with ${theology} theological framework
+- Practical and suitable for group discussion
+- Moderate length (200-400 words)
+- Encouraging of further thought and discussion
+
+Please respond in English.`;
+    }
+
+    const message = await anthropic.messages.create({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: contextPrompt }],
+    });
+
+    const referenceAnswer = message.content[0]?.text || '';
+
+    if (!referenceAnswer) {
+      return res.status(500).json({ 
+        error: language === 'zh' ? '生成参考答案失败' : 'Failed to generate reference answer' 
+      });
+    }
+
+    res.json({ 
+      referenceAnswer,
+      question,
+      passage,
+      theology
+    });
+
+  } catch (error) {
+    console.error('Error generating reference answer:', error);
+    
+    let errorMessage = 'Failed to generate reference answer';
+    if (req.body?.language === 'zh') {
+      errorMessage = '生成参考答案失败，请重试';
+    }
+    
+    if (error.status === 429) {
+      errorMessage = req.body?.language === 'zh' 
+        ? 'API请求过于频繁，请稍后重试' 
+        : 'Rate limit exceeded. Please try again later.';
+    } else if (error.status === 401) {
+      errorMessage = req.body?.language === 'zh' 
+        ? 'API密钥无效' 
+        : 'Invalid API key';
+    }
+
+    res.status(500).json({ error: errorMessage });
+  }
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Bible Study Guide Generator API is running' });
 });
