@@ -1,6 +1,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { commentaryMapping, getCommentaryUrl, bookMapping } from './commentaryMapping.js';
+import { getBookBounds, isValidChapter, isValidVerse, getMaxVerse } from './bibleBounds.js';
 
 export class CommentaryRetriever {
   constructor() {
@@ -15,13 +16,21 @@ export class CommentaryRetriever {
         specifyChapter: `Please specify chapter and verses, not just the book. For example: "${params.bookName} 1:1-10" or "${params.bookName}1:1-10"`,
         specifyVerses: `Please specify verses, not just chapter. For example: "${params.bookName} ${params.chapter}:1-10" or "${params.bookName}${params.chapter}:1-10"`,
         unknownBook: `Unknown book: ${params.bookName}`,
-        invalidFormat: `Invalid verse format: ${params.input}. Supported formats: "John 3:16", "Matthew 5:1-12", "太:10:4-8", "太5:1-12", "哥前 7:24-40"`
+        invalidFormat: `Invalid verse format: ${params.input}. Supported formats: "John 3:16", "Matthew 5:1-12", "太:10:4-8", "太5:1-12", "哥前 7:24-40"`,
+        invalidChapter: `Invalid chapter number: ${params.bookName} has only ${params.maxChapter} chapters, but chapter ${params.chapter} was specified.`,
+        invalidStartVerse: `Invalid start verse: ${params.bookName} ${params.chapter} has only ${params.maxVerse} verses, but verse ${params.startVerse} was specified.`,
+        invalidEndVerse: `Invalid end verse: ${params.bookName} ${params.chapter} has only ${params.maxVerse} verses, but verse ${params.endVerse} was specified.`,
+        invalidVerseRange: `Invalid verse range: Start verse ${params.startVerse} cannot be greater than end verse ${params.endVerse}.`
       },
       zh: {
         specifyChapter: `请指定章节和经文，不只是书卷。例如："${params.bookName} 1:1-10" 或 "${params.bookName}1:1-10"`,
         specifyVerses: `请指定经文，不只是章节。例如："${params.bookName} ${params.chapter}:1-10" 或 "${params.bookName}${params.chapter}:1-10"`,
         unknownBook: `未知的书卷：${params.bookName}`,
-        invalidFormat: `经文格式无效：${params.input}。支持的格式："约 3:16"、"太 5:1-12"、"太:10:4-8"、"太5:1-12"、"哥前 7:24-40"`
+        invalidFormat: `经文格式无效：${params.input}。支持的格式："约 3:16"、"太 5:1-12"、"太:10:4-8"、"太：5:1-12"、"太5:1-12"、"哥前 7:24-40"`,
+        invalidChapter: `无效的章节号：${params.bookName} 只有 ${params.maxChapter} 章，但指定了第 ${params.chapter} 章。`,
+        invalidStartVerse: `无效的起始节数：${params.bookName} ${params.chapter} 章只有 ${params.maxVerse} 节，但指定了第 ${params.startVerse} 节。`,
+        invalidEndVerse: `无效的结束节数：${params.bookName} ${params.chapter} 章只有 ${params.maxVerse} 节，但指定了第 ${params.endVerse} 节。`,
+        invalidVerseRange: `无效的经文范围：起始节 ${params.startVerse} 不能大于结束节 ${params.endVerse}。`
       }
     };
     
@@ -40,13 +49,63 @@ export class CommentaryRetriever {
       throw new Error(this.getErrorMessage('specifyVerses', { bookName: result.bookName, chapter: result.chapter }, language));
     }
     
+    // Get book bounds for validation
+    const bounds = getBookBounds(result.book);
+    if (!bounds) {
+      throw new Error(this.getErrorMessage('unknownBook', { bookName: result.bookName }, language));
+    }
+    
+    // Validate chapter number
+    if (!isValidChapter(result.book, result.chapter)) {
+      throw new Error(this.getErrorMessage('invalidChapter', { 
+        bookName: result.bookName, 
+        chapter: result.chapter, 
+        maxChapter: bounds.chapters 
+      }, language));
+    }
+    
+    // Get max verse for this chapter
+    const maxVerse = getMaxVerse(result.book, result.chapter);
+    
+    // Validate start verse
+    if (!isValidVerse(result.book, result.chapter, result.startVerse)) {
+      throw new Error(this.getErrorMessage('invalidStartVerse', { 
+        bookName: result.bookName, 
+        chapter: result.chapter, 
+        startVerse: result.startVerse, 
+        maxVerse: maxVerse 
+      }, language));
+    }
+    
+    // Validate end verse if provided
+    if (result.endVerse) {
+      if (!isValidVerse(result.book, result.chapter, result.endVerse)) {
+        throw new Error(this.getErrorMessage('invalidEndVerse', { 
+          bookName: result.bookName, 
+          chapter: result.chapter, 
+          endVerse: result.endVerse, 
+          maxVerse: maxVerse 
+        }, language));
+      }
+      
+      // Validate verse range
+      if (result.startVerse > result.endVerse) {
+        throw new Error(this.getErrorMessage('invalidVerseRange', { 
+          startVerse: result.startVerse, 
+          endVerse: result.endVerse 
+        }, language));
+      }
+    }
+    
     return result;
   }
 
-  // Parse verse reference (e.g., "John 3:16", "Matthew 5:1-12", "Romans 8:28-39", "太:10:4-8", "太5:1-12", "哥前 7:24-40")
+  // Parse verse reference (e.g., "John 3:16", "Matthew 5:1-12", "Romans 8:28-39", "太:10:4-8", "太：5:1-12", "太5:1-12", "哥前 7:24-40")
   parseVerseReference(verseInput, language = 'en') {
-    // Handle Chinese format with colon like "太:10:4-8" or "马太福音:10:4-8"
-    const chineseWithColonMatch = verseInput.match(/^([^\d\s:]+):(\d+)(?::(\d+)(?:-(\d+))?)?$/);
+    // Normalize wide colons to narrow colons for consistent parsing
+    const normalizedInput = verseInput.replace(/：/g, ':');
+    // Handle Chinese format with colon like "太:10:4-8", "太：10:4-8" or "马太福音:10:4-8"
+    const chineseWithColonMatch = normalizedInput.match(/^([^\d\s:]+):(\d+)(?::(\d+)(?:-(\d+))?)?$/);
     if (chineseWithColonMatch) {
       const [, bookName, chapter, startVerse, endVerse] = chineseWithColonMatch;
       const normalizedBook = bookName.trim();
@@ -66,7 +125,7 @@ export class CommentaryRetriever {
     }
 
     // Handle Chinese format with space like "哥前 7:24-40" or "马太福音 5:1-12"
-    const chineseWithSpaceMatch = verseInput.match(/^([^\d\s:]+)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$/);
+    const chineseWithSpaceMatch = normalizedInput.match(/^([^\d\s:]+)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$/);
     if (chineseWithSpaceMatch) {
       const [, bookName, chapter, startVerse, endVerse] = chineseWithSpaceMatch;
       const normalizedBook = bookName.trim();
@@ -84,7 +143,7 @@ export class CommentaryRetriever {
     }
 
     // Handle Chinese format without colon like "太5:1-12" or "马太福音5:1-12"
-    const chineseNoColonMatch = verseInput.match(/^([^\d\s]+)(\d+)(?::(\d+)(?:-(\d+))?)?$/);
+    const chineseNoColonMatch = normalizedInput.match(/^([^\d\s]+)(\d+)(?::(\d+)(?:-(\d+))?)?$/);
     if (chineseNoColonMatch) {
       const [, bookName, chapter, startVerse, endVerse] = chineseNoColonMatch;
       const normalizedBook = bookName.trim();
@@ -102,7 +161,7 @@ export class CommentaryRetriever {
     }
 
     // Handle English format like "John 3:16" or "Matthew 5:1-12"
-    const englishMatch = verseInput.match(/^(\d*\s*\w+)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$/i);
+    const englishMatch = normalizedInput.match(/^(\d*\s*\w+)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$/i);
     if (englishMatch) {
       const [, bookName, chapter, startVerse, endVerse] = englishMatch;
       const normalizedBook = bookName.toLowerCase().trim();
