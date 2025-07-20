@@ -1,6 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 const MAX_OUTPUT_TOKENS = parseInt(process.env.MAX_OUTPUT_TOKENS) || 2000;
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022';
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
 export default async function handler(req, res) {
   // Set CORS headers
@@ -33,9 +38,6 @@ export default async function handler(req, res) {
       });
     }
 
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
 
     const translationPrompt = `请将以下英文圣经注释引用翻译成简体中文。
 
@@ -59,7 +61,7 @@ export default async function handler(req, res) {
 请只返回翻译后的中文文本，不要包含其他说明。`;
 
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: ANTHROPIC_MODEL,
       max_tokens: MAX_OUTPUT_TOKENS,
       messages: [{ role: 'user', content: translationPrompt }],
     });
