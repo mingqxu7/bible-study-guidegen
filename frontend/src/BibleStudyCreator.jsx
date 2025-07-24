@@ -12,8 +12,13 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [activeReference, setActiveReference] = useState(null);
+  const [mobileVerseData, setMobileVerseData] = useState({}); // Store verses for mobile display
+  const [loadingMobileVerses, setLoadingMobileVerses] = useState({});
   const timeoutRef = useRef(null);
   const tooltipRef = useRef(null);
+  
+  // Detect if device is mobile (iOS or Android)
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   // Bible book name mappings
   const bookMapping = {
@@ -224,6 +229,51 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
     const reference = parseBibleReference(referenceText);
     if (!reference) return;
 
+    // Mobile behavior - toggle inline verse display
+    if (isMobile) {
+      // If clicking the same reference, toggle it off
+      if (mobileVerseData[referenceText]) {
+        setMobileVerseData(prev => {
+          const newData = { ...prev };
+          delete newData[referenceText];
+          return newData;
+        });
+        return;
+      }
+
+      // Load verse for mobile display
+      setLoadingMobileVerses(prev => ({ ...prev, [referenceText]: true }));
+      try {
+        const text = await fetchBibleText(
+          reference.book,
+          reference.chapter,
+          reference.startVerse,
+          reference.endVerse
+        );
+        
+        setMobileVerseData(prev => ({
+          ...prev,
+          [referenceText]: {
+            reference: referenceText,
+            text: text,
+            verses: reference.endVerse ? 
+              `${reference.startVerse}-${reference.endVerse}` : 
+              reference.startVerse.toString()
+          }
+        }));
+      } catch (error) {
+        console.error('Error loading verse:', error);
+      } finally {
+        setLoadingMobileVerses(prev => {
+          const newLoading = { ...prev };
+          delete newLoading[referenceText];
+          return newLoading;
+        });
+      }
+      return;
+    }
+
+    // Desktop behavior - show tooltip
     // If clicking the same reference, close it
     if (activeReference === referenceText && hoverData) {
       setHoverData(null);
@@ -294,16 +344,16 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
 
   // Handle mouse enter for desktop hover experience (optional)
   const handleMouseEnter = (e, referenceText) => {
-    // Only show on hover if no active click tooltip
-    if (!activeReference && !('ontouchstart' in window)) {
+    // Only show on hover if no active click tooltip and not on mobile
+    if (!isMobile && !activeReference && !('ontouchstart' in window)) {
       handleReferenceClick(e, referenceText);
     }
   };
 
   // Handle mouse leave
   const handleMouseLeave = () => {
-    // Only hide on mouse leave if not clicked
-    if (!activeReference) {
+    // Only hide on mouse leave if not clicked and not on mobile
+    if (!isMobile && !activeReference) {
       timeoutRef.current = setTimeout(() => {
         setHoverData(null);
         setIsLoading(false);
@@ -437,8 +487,53 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
     <>
       {typeof children === 'string' ? processText(children) : children}
       
-      {/* Tooltip - render using portal to avoid stacking context issues */}
-      {(hoverData || isLoading) && createPortal(
+      {/* Mobile: Show verses inline below the references */}
+      {isMobile && Object.keys(mobileVerseData).length > 0 && (
+        <div className="mt-3 space-y-3">
+          {Object.entries(mobileVerseData).map(([ref, data]) => (
+            <div key={ref} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-semibold text-sm text-blue-700">
+                  {data.reference}
+                </div>
+                <button
+                  onClick={() => {
+                    setMobileVerseData(prev => {
+                      const newData = { ...prev };
+                      delete newData[ref];
+                      return newData;
+                    });
+                  }}
+                  className="text-gray-400 hover:text-gray-600 p-1"
+                  aria-label="Close"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="text-sm text-gray-700 leading-relaxed">
+                {data.text}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {/* Show loading indicators for mobile */}
+      {isMobile && Object.keys(loadingMobileVerses).length > 0 && (
+        <div className="mt-3">
+          {Object.keys(loadingMobileVerses).map(ref => (
+            <div key={ref} className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {language.startsWith('zh') ? `加载 ${ref}...` : `Loading ${ref}...`}
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {/* Desktop: Tooltip - render using portal to avoid stacking context issues */}
+      {!isMobile && (hoverData || isLoading) && createPortal(
         <div
           ref={tooltipRef}
           className="fixed bg-white border border-gray-300 rounded-lg shadow-xl p-4"
