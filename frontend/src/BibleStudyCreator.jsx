@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Book, Search, Download, Users, Cross, MessageSquare, Globe, CheckCircle, Clock, AlertCircle, Loader2, ChevronDown, ChevronUp, HelpCircle, Languages } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -238,20 +239,23 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
 
     // Smart positioning logic - position tooltip very close to the reference
     const rect = e.target.getBoundingClientRect();
-    const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    const viewportWidth = window.visualViewport ? window.visualViewport.width : window.innerWidth;
-    const scrollX = window.visualViewport ? window.visualViewport.pageLeft : window.scrollX;
-    const scrollY = window.visualViewport ? window.visualViewport.pageTop : window.scrollY;
-    const tooltipWidth = Math.min(400, viewportWidth - 20); // Responsive width for mobile
-    const tooltipMaxHeight = 300;
     
-    // Calculate position right below the reference text with no gap
-    let x = rect.left + scrollX;
-    let y = rect.bottom + scrollY; // No gap - directly below
+    // Use regular viewport dimensions for mobile compatibility
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+    const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+    
+    const tooltipWidth = Math.min(400, viewportWidth - 20); // Responsive width for mobile
+    const tooltipMaxHeight = Math.min(300, viewportHeight * 0.4); // Max 40% of viewport height
+    
+    // Calculate position relative to viewport for better mobile support
+    let x = rect.left;
+    let y = rect.bottom; // Position directly below the reference
     
     // Adjust horizontal position to keep tooltip on screen
-    if (x + tooltipWidth > viewportWidth + scrollX) {
-      x = Math.max(10, viewportWidth + scrollX - tooltipWidth - 10);
+    if (x + tooltipWidth > viewportWidth) {
+      x = Math.max(10, viewportWidth - tooltipWidth - 10);
     }
     
     // Adjust vertical position - show above if not enough space below
@@ -259,15 +263,20 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
     const spaceAbove = rect.top;
     
     if (spaceBelow < tooltipMaxHeight && spaceAbove > spaceBelow) {
-      // Show above the reference with no gap
-      y = rect.top + scrollY;
+      // Show above the reference
+      y = Math.max(10, rect.top - tooltipMaxHeight);
+    } else if (spaceBelow < tooltipMaxHeight) {
+      // Center in viewport if neither position works well
+      y = Math.max(10, (viewportHeight - tooltipMaxHeight) / 2);
     }
 
     setPosition({ x, y });
     setActiveReference(referenceText);
 
     setIsLoading(true);
-    setHoverData({ reference, text: '', showAbove: spaceBelow < tooltipMaxHeight && spaceAbove > spaceBelow });
+    // Determine if showing above based on calculated position
+    const showAbove = y === Math.max(10, rect.top - tooltipMaxHeight);
+    setHoverData({ reference, text: '', showAbove });
 
     try {
       const text = await fetchBibleText(
@@ -276,7 +285,8 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
         reference.startVerse,
         reference.endVerse
       );
-      setHoverData({ reference, text, showAbove: spaceBelow < tooltipMaxHeight && spaceAbove > spaceBelow });
+      // Keep the same showAbove value from initial calculation
+      setHoverData(prev => ({ ...prev, text }));
     } finally {
       setIsLoading(false);
     }
@@ -427,21 +437,24 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
     <>
       {typeof children === 'string' ? processText(children) : children}
       
-      {/* Tooltip */}
-      {(hoverData || isLoading) && (
+      {/* Tooltip - render using portal to avoid stacking context issues */}
+      {(hoverData || isLoading) && createPortal(
         <div
           ref={tooltipRef}
-          className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-xl p-4"
+          className="fixed bg-white border border-gray-300 rounded-lg shadow-xl p-4"
           style={{
             left: `${position.x}px`,
             top: `${position.y}px`,
-            transform: hoverData?.showAbove ? 'translateY(-100%)' : 'translateY(0)',
+            // Remove transform to avoid positioning issues on mobile
+            // transform: hoverData?.showAbove ? 'translateY(-100%)' : 'translateY(0)',
             width: window.innerWidth < 480 ? '90vw' : '400px',
             maxWidth: '90vw',
-            maxHeight: '300px',
-            marginTop: hoverData?.showAbove ? '0' : '0',
-            marginBottom: hoverData?.showAbove ? '0' : '0',
-            WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
+            maxHeight: `${Math.min(300, window.innerHeight * 0.4)}px`,
+            zIndex: 9999, // Use explicit z-index instead of Tailwind class
+            WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+            // Ensure tooltip is visible on mobile
+            position: 'fixed',
+            overflow: 'visible'
           }}
           onMouseEnter={handleTooltipEnter}
           onMouseLeave={handleTooltipLeave}
@@ -554,7 +567,8 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
               )}
             </>
           ) : null}
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
