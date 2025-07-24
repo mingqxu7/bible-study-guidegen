@@ -5,10 +5,12 @@ A comprehensive web application that generates theologically-informed Bible stud
 ## Features
 
 - **Real-Time Progress Tracking**: Live updates showing backend actions during study guide generation
+- **Interactive Bible Tooltips**: Hover over any Bible reference to instantly view verse text in a tooltip
 - **Theological Perspectives**: Choose from major theological stances (Reformed, Arminian, Dispensationalist, Lutheran, Catholic)
 - **Multilingual Support**: Full internationalization with English and Chinese language support
 - **Comprehensive Study Guides**: Generates detailed guides with verse-by-verse exegesis, discussion questions, and life applications
 - **Expert Commentary**: Draws from respected biblical commentaries and scholarship from StudyLight.org
+- **Enhanced Bible Validation**: Comprehensive validation with specific error messages for invalid chapters/verses
 - **Server-Sent Events (SSE)**: Real-time progress updates with fallback to standard API
 - **Downloadable Content**: Export study guides as text files for offline use
 - **Group-Ready**: Designed specifically for cell group leaders and Bible study facilitators
@@ -27,13 +29,14 @@ bible-study-guide-generator/
 ├── backend/                 # Express.js API server (local development)
 │   ├── server.js           # Main server with SSE support and progress tracking
 │   ├── services/           # Backend services
-│   │   ├── commentaryRetriever.js  # StudyLight.org scraping service
-│   │   └── commentaryMapping.js    # Theological denomination mappings
+│   │   ├── commentaryRetriever.js  # StudyLight.org scraping service with validation
+│   │   ├── commentaryMapping.js    # Theological denomination mappings
+│   │   └── bibleBounds.js         # Bible metadata for validation
 │   ├── package.json        # Backend dependencies
 │   └── .env.example        # Environment variables template
 ├── frontend/               # React frontend application
 │   ├── src/
-│   │   ├── BibleStudyCreator.jsx  # Main component with SSE progress tracking
+│   │   ├── BibleStudyCreator.jsx  # Main component with SSE progress tracking and Bible tooltips
 │   │   ├── main.jsx        # React entry point with Analytics
 │   │   ├── i18n.js         # Internationalization configuration
 │   │   └── index.css       # Tailwind CSS imports
@@ -118,6 +121,8 @@ The frontend will run on `http://localhost:3000`
    - Supports English book names (e.g., "Matthew", "John", "Romans")
    - Supports Chinese book names (e.g., "马太福音", "约翰福音", "罗马书")
    - Supports Chinese abbreviations (e.g., "来 6:4-6" for Hebrews 6:4-6)
+   - Supports Chinese wide colon (：) in references (e.g., "太：3:16")
+   - **Interactive Bible Tooltips**: Hover over any Bible reference in the generated study guide to instantly view the verse text
 4. **Generate Study Guide**: Click the generate button and watch real-time progress
    - **Live Progress Tracking**: See each step as it happens:
      - Parsing verse reference
@@ -217,6 +222,7 @@ Health check endpoint to verify the API is running.
 ### Services & Integrations
 - StudyLight.org (biblical commentary retrieval)
 - Claude AI (study guide generation with enhanced prompts)
+- Bolls.life API (real-time Bible verse text retrieval)
 - Vercel (hosting and serverless functions)
 - Language Detection (automatic locale detection)
 - Progressive Web App (PWA) capabilities
@@ -244,6 +250,26 @@ The application now includes **real-time progress tracking** that shows users ex
 - **Engagement**: Real-time updates keep users engaged during longer processes
 - **Trust**: Showing commentary sources builds confidence in the results
 - **Feedback**: Clear indication of progress and any issues encountered
+
+## Bible Reference Tooltips
+
+The application includes an interactive Bible reference tooltip feature that enhances the reading experience:
+
+### Features
+- **Hover Interactions**: Hover over any Bible reference to see verse text instantly
+- **Smart Detection**: Automatically detects Bible references in multiple formats:
+  - English: "John 3:16", "1 Corinthians 13:4-8"
+  - Chinese: "约 3:16", "太：3:16", "约一 2:1"
+- **Bilingual Support**: Fetches ESV for English and CUV for Chinese references
+- **Smart Positioning**: Tooltips appear above or below references based on available space
+- **Loading States**: Shows loading indicator while fetching verse text
+- **Smooth Experience**: 300ms hover delay prevents accidental triggers
+
+### Technical Details
+- Powered by Bolls.life API for real-time verse retrieval
+- Regex-based reference detection supporting various formats
+- Automatic language detection based on reference format
+- Responsive design that works on all screen sizes
 
 ## Development
 

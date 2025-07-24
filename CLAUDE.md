@@ -31,11 +31,18 @@ npm run preview      # Preview production build
 ### Backend Structure
 - **server.js**: Main Express server handling `/api/generate-study` and `/api/health` endpoints
 - **services/commentaryRetriever.js**: Commentary fetching service that scrapes StudyLight.org
+  - Enhanced Bible reference validation with book bounds checking
+  - Bilingual error messages for invalid references
 - **services/commentaryMapping.js**: Theological denomination to commentary mappings and URL generation
+- **services/bibleBounds.js**: Complete Bible metadata with chapter/verse counts for validation
 
 ### Frontend Structure
 - **BibleStudyCreator.jsx**: Main React component handling the complete UI and study guide generation
+  - Includes BibleReferenceHover component for interactive Bible verse tooltips
+  - Real-time verse text fetching from Bolls.life API (ESV/CUV)
+  - Smart tooltip positioning with hover interactions
 - **main.jsx**: React application entry point
+- **i18n.js**: Internationalization with comprehensive error messages
 - Single-page application with no routing
 
 ### Key Architecture Patterns
@@ -43,6 +50,8 @@ npm run preview      # Preview production build
 - **AI Enhancement**: Claude AI processes retrieved commentary content to generate structured study guides with verse-by-verse exegesis, discussion questions, and life applications
 - **Theological Alignment**: Each theological stance has mapped commentaries ensuring doctrinally consistent study guides
 - **Caching**: Commentary retrieval includes caching with request delays to be respectful to external services
+- **Bible Reference Validation**: Comprehensive validation system using bibleBounds.js to ensure valid book/chapter/verse references
+- **Interactive Bible Tooltips**: Hover functionality that fetches and displays verse text in real-time, supporting multiple reference formats including Chinese wide colon (：)
 
 ### Environment Configuration
 Backend requires `.env` file with:
@@ -54,6 +63,7 @@ Backend requires `.env` file with:
 ### API Integration
 - **Claude AI**: Uses `claude-3-5-sonnet-20241022` model for study guide generation
 - **StudyLight.org**: Web scraping for theological commentaries using axios and cheerio
+- **Bolls.life API**: Real-time Bible verse text retrieval for hover tooltips (ESV for English, CUV for Chinese)
 - Frontend communicates with backend via REST API at `http://localhost:3001/api`
 
 ### Data Flow
