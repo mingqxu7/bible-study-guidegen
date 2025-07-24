@@ -10,7 +10,9 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
   const [hoverData, setHoverData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [activeReference, setActiveReference] = useState(null);
   const timeoutRef = useRef(null);
+  const tooltipRef = useRef(null);
 
   // Bible book name mappings
   const bookMapping = {
@@ -213,10 +215,21 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
     }
   };
 
-  // Handle mouse enter on Bible reference
-  const handleMouseEnter = async (e, referenceText) => {
+  // Handle click on Bible reference
+  const handleReferenceClick = async (e, referenceText) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     const reference = parseBibleReference(referenceText);
     if (!reference) return;
+
+    // If clicking the same reference, close it
+    if (activeReference === referenceText && hoverData) {
+      setHoverData(null);
+      setActiveReference(null);
+      setIsLoading(false);
+      return;
+    }
 
     // Clear any existing timeout
     if (timeoutRef.current) {
@@ -249,6 +262,7 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
     }
 
     setPosition({ x, y });
+    setActiveReference(referenceText);
 
     setIsLoading(true);
     setHoverData({ reference, text: '', showAbove: spaceBelow < tooltipMaxHeight && spaceAbove > spaceBelow });
@@ -266,12 +280,23 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
     }
   };
 
+  // Handle mouse enter for desktop hover experience (optional)
+  const handleMouseEnter = (e, referenceText) => {
+    // Only show on hover if no active click tooltip
+    if (!activeReference && !('ontouchstart' in window)) {
+      handleReferenceClick(e, referenceText);
+    }
+  };
+
   // Handle mouse leave
   const handleMouseLeave = () => {
-    timeoutRef.current = setTimeout(() => {
-      setHoverData(null);
-      setIsLoading(false);
-    }, 300); // Small delay to allow moving to tooltip
+    // Only hide on mouse leave if not clicked
+    if (!activeReference) {
+      timeoutRef.current = setTimeout(() => {
+        setHoverData(null);
+        setIsLoading(false);
+      }, 300); // Small delay to allow moving to tooltip
+    }
   };
 
   // Handle mouse enter on tooltip
@@ -283,8 +308,10 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
 
   // Handle mouse leave on tooltip
   const handleTooltipLeave = () => {
-    setHoverData(null);
-    setIsLoading(false);
+    if (!activeReference) {
+      setHoverData(null);
+      setIsLoading(false);
+    }
   };
 
   // Process children to add hover functionality to Bible references
@@ -336,14 +363,15 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
         result.push(text.substring(lastIndex, ref.start));
       }
 
-      // Add hoverable reference
+      // Add clickable reference
       result.push(
         <span
           key={`ref-${i}`}
-          className="text-blue-600 underline cursor-pointer hover:text-blue-800 transition-colors"
+          className="bible-reference text-blue-600 underline cursor-pointer hover:text-blue-800 transition-colors"
+          onClick={(e) => handleReferenceClick(e, ref.text)}
           onMouseEnter={(e) => handleMouseEnter(e, ref.text)}
           onMouseLeave={handleMouseLeave}
-          title="Hover to see verse text"
+          title="Click to see verse text"
         >
           {ref.text}
         </span>
@@ -360,13 +388,31 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
     return result;
   };
 
+  // Handle click outside to close tooltip
   useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (activeReference && tooltipRef.current && !tooltipRef.current.contains(event.target)) {
+        // Check if the click is not on a Bible reference
+        const isReferenceClick = event.target.closest('.bible-reference');
+        if (!isReferenceClick) {
+          setHoverData(null);
+          setActiveReference(null);
+          setIsLoading(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+
     return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, []);
+  }, [activeReference]);
 
   return (
     <>
@@ -375,6 +421,7 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
       {/* Tooltip */}
       {(hoverData || isLoading) && (
         <div
+          ref={tooltipRef}
           className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-xl p-4"
           style={{
             left: position.x,
@@ -400,8 +447,25 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
                 <div className="font-semibold text-sm text-blue-700 bg-blue-50 px-2 py-1 rounded">
                   {hoverData.reference.original}
                 </div>
-                <div className="text-xs text-gray-500">
-                  {language.startsWith('zh') ? 'CUV' : 'ESV'}
+                <div className="flex items-center gap-2">
+                  <div className="text-xs text-gray-500">
+                    {language.startsWith('zh') ? 'CUV' : 'ESV'}
+                  </div>
+                  {activeReference && (
+                    <button
+                      onClick={() => {
+                        setHoverData(null);
+                        setActiveReference(null);
+                        setIsLoading(false);
+                      }}
+                      className="text-gray-400 hover:text-gray-600 p-1"
+                      aria-label="Close"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               </div>
               <div 
