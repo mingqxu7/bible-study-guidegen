@@ -238,18 +238,20 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
 
     // Smart positioning logic - position tooltip very close to the reference
     const rect = e.target.getBoundingClientRect();
-    const viewportHeight = window.innerHeight;
-    const viewportWidth = window.innerWidth;
-    const tooltipWidth = 400;
+    const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const viewportWidth = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+    const scrollX = window.visualViewport ? window.visualViewport.pageLeft : window.scrollX;
+    const scrollY = window.visualViewport ? window.visualViewport.pageTop : window.scrollY;
+    const tooltipWidth = Math.min(400, viewportWidth - 20); // Responsive width for mobile
     const tooltipMaxHeight = 300;
     
     // Calculate position right below the reference text with no gap
-    let x = rect.left + window.scrollX;
-    let y = rect.bottom + window.scrollY; // No gap - directly below
+    let x = rect.left + scrollX;
+    let y = rect.bottom + scrollY; // No gap - directly below
     
     // Adjust horizontal position to keep tooltip on screen
-    if (x + tooltipWidth > viewportWidth + window.scrollX) {
-      x = Math.max(10, viewportWidth + window.scrollX - tooltipWidth - 10);
+    if (x + tooltipWidth > viewportWidth + scrollX) {
+      x = Math.max(10, viewportWidth + scrollX - tooltipWidth - 10);
     }
     
     // Adjust vertical position - show above if not enough space below
@@ -258,7 +260,7 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
     
     if (spaceBelow < tooltipMaxHeight && spaceAbove > spaceBelow) {
       // Show above the reference with no gap
-      y = rect.top + window.scrollY;
+      y = rect.top + scrollY;
     }
 
     setPosition({ x, y });
@@ -369,9 +371,16 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
           key={`ref-${i}`}
           className="bible-reference text-blue-600 underline cursor-pointer hover:text-blue-800 transition-colors"
           onClick={(e) => handleReferenceClick(e, ref.text)}
+          onTouchEnd={(e) => {
+            e.preventDefault(); // Prevent delayed click on iOS
+            handleReferenceClick(e, ref.text);
+          }}
           onMouseEnter={(e) => handleMouseEnter(e, ref.text)}
           onMouseLeave={handleMouseLeave}
           title="Click to see verse text"
+          role="button"
+          tabIndex={0}
+          style={{ WebkitTapHighlightColor: 'transparent' }}
         >
           {ref.text}
         </span>
@@ -424,14 +433,15 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
           ref={tooltipRef}
           className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-xl p-4"
           style={{
-            left: position.x,
-            top: position.y,
+            left: `${position.x}px`,
+            top: `${position.y}px`,
             transform: hoverData?.showAbove ? 'translateY(-100%)' : 'translateY(0)',
-            width: '400px',
+            width: window.innerWidth < 480 ? '90vw' : '400px',
             maxWidth: '90vw',
             maxHeight: '300px',
             marginTop: hoverData?.showAbove ? '0' : '0',
-            marginBottom: hoverData?.showAbove ? '0' : '0'
+            marginBottom: hoverData?.showAbove ? '0' : '0',
+            WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
           }}
           onMouseEnter={handleTooltipEnter}
           onMouseLeave={handleTooltipLeave}
