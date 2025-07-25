@@ -34,6 +34,34 @@ app.get('/api/generate-study-stream', async (req, res) => {
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
     'Access-Control-Allow-Origin': '*',
+    'X-Accel-Buffering': 'no', // Disable proxy buffering
+  });
+
+  // Keep-alive mechanism
+  const keepAliveInterval = setInterval(() => {
+    try {
+      res.write(':keepalive\n\n');
+    } catch (err) {
+      console.error('Error writing keepalive:', err);
+      clearInterval(keepAliveInterval);
+    }
+  }, 30000); // Send keepalive every 30 seconds
+
+  // Clean up on connection close
+  req.on('close', () => {
+    clearInterval(keepAliveInterval);
+    console.log('SSE connection closed by client');
+  });
+  
+  // Handle connection errors
+  req.on('error', (err) => {
+    console.error('SSE connection error:', err);
+    clearInterval(keepAliveInterval);
+  });
+  
+  res.on('error', (err) => {
+    console.error('SSE response error:', err);
+    clearInterval(keepAliveInterval);
   });
 
   try {
@@ -88,16 +116,21 @@ app.get('/api/generate-study-stream', async (req, res) => {
     req.body = body;
     
     // Process the request with progress updates
-    await processStudyGuideWithProgress(req, res, selectedStance, language, parsedVerse, parsedSelectedCommentaries);
+    await processStudyGuideWithProgress(req, res, selectedStance, language, parsedVerse, parsedSelectedCommentaries, keepAliveInterval);
     
   } catch (error) {
     console.error('Error in SSE endpoint:', error);
-    res.write(`data: ${JSON.stringify({ error: 'Failed to generate study guide. Please try again.' })}\n\n`);
-    res.end();
+    clearInterval(keepAliveInterval);
+    
+    // Check if the connection is still open before writing
+    if (!res.headersSent && !res.finished) {
+      res.write(`data: ${JSON.stringify({ error: 'Failed to generate study guide. Please try again.' })}\n\n`);
+      res.end();
+    }
   }
 });
 
-async function processStudyGuideWithProgress(req, res, selectedStance, language, parsedVerse, selectedCommentaries) {
+async function processStudyGuideWithProgress(req, res, selectedStance, language, parsedVerse, selectedCommentaries, keepAliveInterval) {
   try {
     const { verseInput } = req.body;
     console.log('processStudyGuideWithProgress - selectedCommentaries param:', selectedCommentaries);
@@ -597,6 +630,12 @@ CRITICAL JSON FORMATTING REQUIREMENTS:
       data: studyData,
       message: language === 'zh' ? '学习指南生成成功！' : 'Study guide generated successfully!'
     })}\n\n`);
+    
+    // Clear the keepalive interval before ending
+    if (keepAliveInterval) {
+      clearInterval(keepAliveInterval);
+    }
+    
     res.end();
 
   } catch (error) {
@@ -629,8 +668,17 @@ CRITICAL JSON FORMATTING REQUIREMENTS:
         'Study guide was truncated due to length. Please try with fewer verses.';
     }
     
-    res.write(`data: ${JSON.stringify({ error: errorMessage })}\n\n`);
-    res.end();
+    // Check if connection is still open before writing
+    if (!res.headersSent && !res.finished) {
+      res.write(`data: ${JSON.stringify({ error: errorMessage })}\n\n`);
+      
+      // Clear the keepalive interval before ending
+      if (keepAliveInterval) {
+        clearInterval(keepAliveInterval);
+      }
+      
+      res.end();
+    }
   }
 }
 
