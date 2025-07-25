@@ -730,6 +730,37 @@ const BibleStudyCreator = () => {
     }
   }, [streamingContent, showStreamingContent]);
 
+  // Scroll to study guide and focus when generation completes
+  useEffect(() => {
+    if (studyGuide && studyGuideRef.current) {
+      // Small delay to ensure DOM is updated
+      setTimeout(() => {
+        // Scroll the study guide into view
+        studyGuideRef.current.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start',
+          inline: 'nearest' 
+        });
+        
+        // Focus on the study guide container to make it keyboard accessible
+        studyGuideRef.current.focus();
+        
+        // Ensure scrollbar is visible by adding a small scroll
+        studyGuideRef.current.scrollTop = 1;
+        studyGuideRef.current.scrollTop = 0;
+        
+        // For mobile devices, also scroll the parent container
+        if (window.innerWidth < 768) {
+          // Find the main content container and scroll it
+          const mainContent = studyGuideRef.current.closest('.max-w-7xl');
+          if (mainContent) {
+            mainContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+      }, 100);
+    }
+  }, [studyGuide]);
+
   // Progress step component
   const ProgressStep = ({ step, isActive, isCompleted }) => {
     const getStepIcon = () => {
@@ -1824,7 +1855,16 @@ const BibleStudyCreator = () => {
             )}
 
             {studyGuide && (
-              <div ref={studyGuideRef} className="space-y-8 max-h-[calc(100vh-16rem)] overflow-y-auto pr-2">
+              <div 
+                ref={studyGuideRef} 
+                className="study-guide-scroll space-y-8 max-h-[calc(100vh-16rem)] overflow-y-auto pr-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                tabIndex={-1}
+                style={{ 
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: '#9CA3AF #F3F4F6',
+                  WebkitOverflowScrolling: 'touch'
+                }}
+              >
                 {/* Header Section */}
                 <div className="text-center bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-6 shadow-sm">
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">{typeof studyGuide.title === 'string' ? studyGuide.title : 'Study Guide'}</h3>

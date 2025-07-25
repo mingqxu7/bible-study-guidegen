@@ -1,3 +1,35 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom scrollbar styles for study guide */
+.study-guide-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.study-guide-scroll::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.study-guide-scroll::-webkit-scrollbar-thumb {
+  background: #9ca3af;
+  border-radius: 4px;
+}
+
+.study-guide-scroll::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Force scrollbar visibility on mobile */
+@media (max-width: 768px) {
+  .study-guide-scroll {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  
+  .study-guide-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+}

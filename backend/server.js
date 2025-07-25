@@ -451,32 +451,67 @@ CRITICAL JSON FORMATTING REQUIREMENTS:
     })}\n\n`);
     
     console.log('Generating study guide with Claude...');
-    const stream = await anthropic.messages.create({
-      model: ANTHROPIC_MODEL,
-      max_tokens: MAX_OUTPUT_TOKENS,
-      stream: true,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
+    
+    // Retry logic for API connection errors
+    let stream;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        stream = await anthropic.messages.create({
+          model: ANTHROPIC_MODEL,
+          max_tokens: MAX_OUTPUT_TOKENS,
+          stream: true,
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ]
+        });
+        break; // Success, exit retry loop
+      } catch (error) {
+        retryCount++;
+        console.error(`Claude API connection attempt ${retryCount} failed:`, error.message);
+        
+        if (retryCount >= maxRetries) {
+          throw new Error(`Failed to connect to Claude API after ${maxRetries} attempts. Please check your internet connection and try again.`);
         }
-      ]
-    });
+        
+        // Send retry message to frontend
+        res.write(`data: ${JSON.stringify({ 
+          type: 'progress', 
+          step: 'retrying_connection', 
+          message: language === 'zh' ? 
+            `连接失败，正在重试... (${retryCount}/${maxRetries})` : 
+            `Connection failed, retrying... (${retryCount}/${maxRetries})`
+        })}\n\n`);
+        
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount - 1)));
+      }
+    }
 
     let responseText = '';
     
-    for await (const messageStreamEvent of stream) {
-      if (messageStreamEvent.type === 'content_block_delta') {
-        const delta = messageStreamEvent.delta.text;
-        responseText += delta;
-        
-        // Send streaming tokens to frontend
-        res.write(`data: ${JSON.stringify({ 
-          type: 'token', 
-          content: delta,
-          totalLength: responseText.length
-        })}\n\n`);
+    try {
+      for await (const messageStreamEvent of stream) {
+        if (messageStreamEvent.type === 'content_block_delta') {
+          const delta = messageStreamEvent.delta.text;
+          responseText += delta;
+          
+          // Send streaming tokens to frontend
+          res.write(`data: ${JSON.stringify({ 
+            type: 'token', 
+            content: delta,
+            totalLength: responseText.length
+          })}\n\n`);
+        }
       }
+    } catch (streamError) {
+      console.error('Error during Claude streaming:', streamError);
+      throw new Error('Connection lost while generating study guide. Please try again.');
     }
 
     let studyData;
@@ -568,12 +603,30 @@ CRITICAL JSON FORMATTING REQUIREMENTS:
     console.error('Error generating study guide:', error);
     
     let errorMessage = 'Failed to generate study guide. Please try again.';
-    if (error.name === 'SyntaxError') {
+    
+    // Handle specific error types
+    if (error.message.includes('Failed to connect to Claude API')) {
+      errorMessage = language === 'zh' ? 
+        '无法连接到 Claude AI 服务。请检查您的网络连接并重试。' : 
+        'Unable to connect to Claude AI service. Please check your internet connection and try again.';
+    } else if (error.message.includes('Connection lost while generating')) {
+      errorMessage = language === 'zh' ?
+        '生成学习指南时连接中断。请重试。' :
+        'Connection lost while generating study guide. Please try again.';
+    } else if (error.name === 'APIConnectionError') {
+      errorMessage = language === 'zh' ?
+        '网络连接错误。请检查您的网络连接并重试。' :
+        'Network connection error. Please check your internet connection and try again.';
+    } else if (error.name === 'SyntaxError') {
       errorMessage = 'Failed to parse study guide response. Please try again.';
     } else if (error.status === 401) {
       errorMessage = 'Invalid API key. Please check your Anthropic API configuration.';
     } else if (error.status === 429) {
       errorMessage = 'Rate limit exceeded. Please try again later.';
+    } else if (error.message.includes('truncated')) {
+      errorMessage = language === 'zh' ?
+        '学习指南内容过长被截断。请尝试减少经文数量。' :
+        'Study guide was truncated due to length. Please try with fewer verses.';
     }
     
     res.write(`data: ${JSON.stringify({ error: errorMessage })}\n\n`);
