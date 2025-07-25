@@ -4,10 +4,10 @@
   "installCommand": "cd frontend && npm install",
   "functions": {
     "api/generate-study.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/generate-study-stream.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/generate-reference-answer.js": {
       "maxDuration": 30
