@@ -1003,7 +1003,8 @@ const BibleStudyCreator = () => {
         { name: "Scofield Reference Notes", code: "srn", author: "C.I. Scofield" },
         { name: "Darby's Synopsis", code: "dsn", author: "John Darby" },
         { name: "Ironside's Notes", code: "isn", author: "H.A. Ironside" },
-        { name: "McGee's Commentary", code: "ttb", author: "J. Vernon McGee" }
+        { name: "McGee's Commentary", code: "ttb", author: "J. Vernon McGee" },
+        { name: "Constable's Expository Notes", code: "dcc", author: "Thomas L. Constable" }
       ]
     },
     { 
