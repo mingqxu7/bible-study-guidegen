@@ -2,11 +2,55 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { commentaryMapping, getCommentaryUrl, bookMapping } from './commentaryMapping.js';
 import { getBookBounds, isValidChapter, isValidVerse, getMaxVerse } from './bibleBounds.js';
+import { AlternativeCommentaryFetcher } from './alternativeCommentaryFetcher.js';
 
 export class CommentaryRetriever {
   constructor() {
     this.cache = new Map();
-    this.requestDelay = 500; // Reduced delay for serverless (500ms)
+    this.requestDelay = 1500; // Increased delay to avoid rate limiting (1.5s)
+    this.lastRequestTime = 0;
+    this.requestCount = 0;
+    this.userAgents = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0'
+    ];
+    this.alternativeFetcher = new AlternativeCommentaryFetcher();
+    this.useAlternativeSources = process.env.USE_ALTERNATIVE_SOURCES === 'true' || false;
+    this.blockedCount = 0; // Track how many times we've been blocked
+  }
+
+  // Get a random user agent
+  getRandomUserAgent() {
+    return this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
+  }
+
+  // Apply exponential backoff delay
+  async applyRateLimit() {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    
+    // Increase delay if making frequent requests
+    if (this.requestCount > 5) {
+      this.requestDelay = Math.min(this.requestDelay * 1.5, 10000); // Max 10s delay
+    }
+    
+    // Wait if not enough time has passed
+    if (timeSinceLastRequest < this.requestDelay) {
+      await this.delay(this.requestDelay - timeSinceLastRequest);
+    }
+    
+    this.lastRequestTime = Date.now();
+    this.requestCount++;
+    
+    // Reset request count after a period of inactivity
+    if (timeSinceLastRequest > 60000) { // 1 minute
+      this.requestCount = 1;
+      this.requestDelay = 1500; // Reset to base delay
+    }
   }
 
   // Helper function to get error messages in the specified language
@@ -185,23 +229,125 @@ export class CommentaryRetriever {
 
   // Fetch commentary content from StudyLight.org
   async fetchCommentary(commentaryCode, book, chapter, startVerse = null, endVerse = null) {
-    const url = getCommentaryUrl(commentaryCode, book, chapter);
+    const originalUrl = getCommentaryUrl(commentaryCode, book, chapter);
     const cacheKey = `${commentaryCode}-${book}-${chapter}`;
 
     // Check cache first
     if (this.cache.has(cacheKey)) {
+      console.log(`Using cached commentary for ${cacheKey}`);
       return this.cache.get(cacheKey);
     }
 
-    try {
-      console.log(`Fetching commentary from: ${url}`);
-      
-      const response = await axios.get(url, {
-        timeout: 5000, // Reduced timeout for serverless
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    // Apply rate limiting before making request (less aggressive with ScraperAPI)
+    if (!process.env.SCRAPERAPI_KEY) {
+      await this.applyRateLimit();
+    }
+
+    let retries = 2; // Reduced retries to fallback faster
+    let lastError = null;
+    let useScraperAPI = !!process.env.SCRAPERAPI_KEY;
+
+    while (retries > 0) {
+      try {
+        let url;
+        let requestConfig;
+        
+        // Use ScraperAPI if key is available and enabled
+        if (useScraperAPI && process.env.SCRAPERAPI_KEY) {
+          console.log(`Fetching via ScraperAPI: ${originalUrl} (${retries} retries left)`);
+          url = `http://api.scraperapi.com`;
+          requestConfig = {
+            timeout: 10000, // Reduced timeout to fallback faster
+            params: {
+              api_key: process.env.SCRAPERAPI_KEY,
+              url: originalUrl,
+              render: 'false', // We don't need JavaScript rendering
+              country_code: 'us'
+            },
+            validateStatus: function (status) {
+              return status < 500;
+            }
+          };
+        } else {
+          // Direct request
+          console.log(`Fetching directly: ${originalUrl} (${retries} retries left)`);
+          url = originalUrl;
+          requestConfig = {
+            timeout: 15000, // Increased timeout
+            headers: {
+              'User-Agent': this.getRandomUserAgent(),
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.9',
+              'Accept-Encoding': 'gzip, deflate, br',
+              'DNT': '1',
+              'Connection': 'keep-alive',
+              'Upgrade-Insecure-Requests': '1',
+              'Sec-Fetch-Dest': 'document',
+              'Sec-Fetch-Mode': 'navigate',
+              'Sec-Fetch-Site': 'none',
+              'Cache-Control': 'max-age=0',
+              'Referer': 'https://www.google.com/'
+            },
+            // Add proxy support if environment variable is set
+            ...(process.env.PROXY_URL && {
+              proxy: {
+                host: process.env.PROXY_HOST,
+                port: process.env.PROXY_PORT,
+                auth: process.env.PROXY_AUTH ? {
+                  username: process.env.PROXY_USER,
+                  password: process.env.PROXY_PASS
+                } : undefined
+              }
+            }),
+            validateStatus: function (status) {
+              return status < 500; // Resolve only if the status code is less than 500
+            }
+          };
         }
-      });
+        
+        const response = await axios.get(url, requestConfig);
+
+        // Check for blocking responses
+        if (response.status === 403 || response.status === 429) {
+          if (useScraperAPI) {
+            console.warn(`ScraperAPI returned ${response.status}. Falling back to direct request...`);
+            useScraperAPI = false; // Disable ScraperAPI for next retry
+            retries--;
+            if (retries > 0) {
+              continue; // Try again without ScraperAPI
+            }
+          } else {
+            console.warn(`Received ${response.status} status. Implementing backoff...`);
+            retries--;
+            if (retries > 0) {
+              // Exponential backoff
+              const backoffDelay = (4 - retries) * 3000; // 3s, 6s, 9s
+              console.log(`Waiting ${backoffDelay}ms before retry...`);
+              await this.delay(backoffDelay);
+              continue;
+            }
+          }
+          throw new Error(`Access blocked (${response.status}). Please try again later.`);
+        }
+
+        if (response.status === 404) {
+          throw new Error(`Commentary not found for ${book} ${chapter}`);
+        }
+        
+        // Check for ScraperAPI specific errors
+        if (useScraperAPI && response.data) {
+          // ScraperAPI returns JSON errors sometimes
+          if (typeof response.data === 'object' && response.data.error) {
+            console.error(`ScraperAPI error: ${response.data.error}`);
+            useScraperAPI = false;
+            retries--;
+            if (retries > 0) {
+              console.log('Retrying without ScraperAPI...');
+              continue;
+            }
+            throw new Error(`ScraperAPI error: ${response.data.error}`);
+          }
+        }
 
       const $ = cheerio.load(response.data);
       
@@ -393,18 +539,81 @@ export class CommentaryRetriever {
       }
 
       console.log('Commentary Text:', commentaryText);
-      // Cache the result
-      this.cache.set(cacheKey, commentaryText);
-      
-      // Add delay to be respectful to the server
-      await this.delay(this.requestDelay);
-      
-      return commentaryText;
+        // Cache the result
+        this.cache.set(cacheKey, commentaryText);
+        
+        // Success - reset request delay
+        if (this.requestCount > 5) {
+          this.requestDelay = Math.max(1500, this.requestDelay * 0.9); // Gradually reduce delay on success
+        }
+        
+        return commentaryText;
 
-    } catch (error) {
-      console.error(`Error fetching commentary from ${url}:`, error.message);
-      return `Error retrieving commentary: ${error.message}`;
+      } catch (error) {
+        console.error(`Error fetching commentary: ${error.message}`);
+        lastError = error;
+        
+        // If timeout with ScraperAPI, try without it
+        if (error.code === 'ECONNABORTED' && useScraperAPI) {
+          console.log('ScraperAPI timeout, trying direct request...');
+          useScraperAPI = false;
+          retries--;
+          if (retries > 0) {
+            continue;
+          }
+        } else {
+          retries--;
+          if (retries > 0 && !error.message.includes('not found')) {
+            const backoffDelay = (4 - retries) * 2000;
+            console.log(`Error occurred, waiting ${backoffDelay}ms before retry...`);
+            await this.delay(backoffDelay);
+          }
+        }
+      }
     }
+
+    // All retries exhausted
+    console.error(`StudyLight fetch failed after all retries. Last error: ${lastError?.message}`);
+    
+    // Track blocking
+    if (lastError?.message?.includes('Access blocked')) {
+      this.blockedCount++;
+      console.warn(`Blocked count increased to ${this.blockedCount}`);
+    }
+    
+    // Try alternative sources if StudyLight is blocked or timing out
+    if (this.blockedCount > 0 || this.useAlternativeSources || lastError?.message?.includes('Access blocked') || lastError?.message?.includes('timeout')) {
+      console.log('Attempting to fetch from alternative sources...');
+      try {
+        const alternativeResult = await this.alternativeFetcher.fetchCommentary(book, chapter, startVerse);
+        
+        // Format the alternative result to match expected format
+        let formattedContent = `[Alternative Source: ${alternativeResult.source}]\n\n`;
+        
+        if (alternativeResult.commentaries) {
+          // Bible Hub format
+          for (const [title, content] of Object.entries(alternativeResult.commentaries)) {
+            formattedContent += `${title}:\n${content}\n\n`;
+          }
+        } else if (alternativeResult.passageText) {
+          // Bible Gateway format
+          formattedContent += `Passage Text:\n${alternativeResult.passageText}\n\n`;
+          if (alternativeResult.studyNotes?.length > 0) {
+            formattedContent += `Study Notes:\n${alternativeResult.studyNotes.join('\n')}\n`;
+          }
+        }
+        
+        // Cache the result
+        this.cache.set(cacheKey, formattedContent);
+        
+        return formattedContent;
+      } catch (altError) {
+        console.error(`Alternative source also failed: ${altError.message}`);
+        return `Error retrieving commentary from all sources. StudyLight: ${lastError?.message}. Alternative: ${altError.message}`;
+      }
+    }
+    
+    return `Error retrieving commentary: ${lastError?.message || 'Unknown error after retries'}`;
   }
 
   // Get commentaries for a specific denomination and passage
@@ -636,13 +845,19 @@ export class CommentaryRetriever {
     return `No commentary available for verses ${startVerse}${endVerse && endVerse !== startVerse ? `-${endVerse}` : ''} in this source.`;
   }
 
-  // Helper method for delays
+  // Helper method for delays with jitter
   delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    // Add random jitter (±20%) to avoid pattern detection
+    const jitter = ms * 0.2 * (Math.random() - 0.5);
+    const actualDelay = Math.max(100, ms + jitter);
+    return new Promise(resolve => setTimeout(resolve, actualDelay));
   }
 
   // Clear cache if needed
   clearCache() {
     this.cache.clear();
+    this.requestCount = 0;
+    this.lastRequestTime = 0;
+    this.requestDelay = 1500;
   }
 }
