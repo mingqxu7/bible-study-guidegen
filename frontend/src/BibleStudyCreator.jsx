@@ -1203,12 +1203,52 @@ const BibleStudyCreator = () => {
   };
 
   const exportToPDF = () => {
-    if (!studyGuide) return;
+    if (!studyGuide || !studyGuideRef.current) return;
 
     try {
       // Helper functions
       const safeString = (value) => typeof value === 'string' ? value : '';
-      const safeArray = (value) => Array.isArray(value) ? value : [];
+      
+      // Function to clean and extract DOM content
+      const extractDOMContent = () => {
+        const container = studyGuideRef.current;
+        if (!container) return null;
+        
+        // Clone the container to avoid modifying the original
+        const clone = container.cloneNode(true);
+        
+        // Remove all buttons and interactive elements
+        clone.querySelectorAll('button').forEach(el => el.remove());
+        
+        // Remove any elements marked as no-export
+        clone.querySelectorAll('.no-export').forEach(el => el.remove());
+        
+        // Clean up Tailwind classes and convert to inline styles for PDF
+        const cleanupElement = (el) => {
+          // Convert certain Tailwind classes to inline styles
+          if (el.classList && el.classList.contains('bg-blue-50')) {
+            el.style.backgroundColor = '#eff6ff';
+          }
+          if (el.classList && el.classList.contains('border-l-2')) {
+            el.style.borderLeft = '2px solid #3b82f6';
+          }
+          if (el.classList && el.classList.contains('pl-6')) {
+            el.style.paddingLeft = '24px';
+          }
+          if (el.classList && el.classList.contains('mt-3')) {
+            el.style.marginTop = '12px';
+          }
+          
+          // Process children
+          Array.from(el.children).forEach(child => cleanupElement(child));
+        };
+        
+        cleanupElement(clone);
+        return clone;
+      };
+      
+      // Extract the actual DOM content
+      const domContent = extractDOMContent();
 
       // Create filename for the window title
       const passageText = studyGuide.passage || verseInput;
@@ -1221,6 +1261,24 @@ const BibleStudyCreator = () => {
       const studyGuideText = i18n.language.startsWith('zh') ? '学习指南' : 'Study Guide';
       const documentTitle = `${baseFilename} ${studyGuideText}`;
 
+      // Try to use DOM content if available, otherwise fall back to data
+      let studyContent = '';
+      
+      if (domContent) {
+        // Extract content from DOM directly - this will include all translations and answers
+        studyContent = domContent.innerHTML
+          .replace(/class="[^"]*"/g, '') // Remove class attributes
+          .replace(/data-[\w-]+="[^"]*"/g, '') // Remove data attributes
+          .replace(/<svg[^>]*>.*?<\/svg>/g, '') // Remove SVG icons
+          .replace(/style="[^"]*"/g, (match) => {
+            // Keep only essential inline styles
+            if (match.includes('background') || match.includes('border') || match.includes('padding') || match.includes('margin')) {
+              return match;
+            }
+            return '';
+          });
+      }
+      
       // Build complete HTML document
       let htmlContent = `
         <!DOCTYPE html>
@@ -1295,6 +1353,28 @@ const BibleStudyCreator = () => {
             .commentary-section { 
               background: #f8f9fa; 
             }
+            .reference-answer {
+              margin-top: 15px;
+              padding: 15px;
+              border-left: 3px solid #3498db;
+              background-color: #f8f9fa;
+              border-radius: 4px;
+            }
+            .reference-answer h4 {
+              color: #2980b9;
+              font-size: 14px;
+              margin: 0 0 10px 0;
+            }
+            .translated-text {
+              color: #333;
+              font-size: 13px;
+              margin-bottom: 8px;
+            }
+            .original-text {
+              color: #6b7280;
+              font-size: 11px;
+              font-style: italic;
+            }
             .footer { 
               text-align: center; 
               margin-top: 40px; 
@@ -1336,6 +1416,16 @@ const BibleStudyCreator = () => {
             <p style="font-size: 14px; color: #7f8c8d; margin: 0;">${safeString(studyGuide.theology)} ${t('perspective')}</p>
           </div>
       `;
+      
+      // If we have DOM content, use it preferentially as it includes all current state
+      if (studyContent) {
+        htmlContent += `
+          <div class="main-content">
+            ${studyContent}
+          </div>
+        `;
+      } else {
+        // Fall back to building from data
 
       // Overview Section
       if (studyGuide.overview) {
@@ -1387,12 +1477,22 @@ const BibleStudyCreator = () => {
               <div style="margin-bottom: 10px;">
                 <h4>${t('commentaryQuotes') || 'Commentary Quotes'}</h4>
             `;
-            verse.verbatimQuotes.forEach(quote => {
+            verse.verbatimQuotes.forEach((quote, quoteIndex) => {
+              const quoteId = `${studyGuide.exegesis.indexOf(verse)}-${quoteIndex}`;
+              // Check if there's a translation for this quote
+              const translatedQuote = quoteTranslations[quoteId];
+              const displayQuote = translatedQuote || quote.quote;
+              
               htmlContent += `
                 <div style="margin: 10px 0; padding: 10px; background-color: #f5f5f5; border-left: 3px solid #4f46e5; border-radius: 4px;">
                   <blockquote style="margin: 0; font-style: italic; color: #4b5563;">
-                    "${safeString(quote.quote)}"
+                    "${safeString(displayQuote)}"
                   </blockquote>
+                  ${translatedQuote ? `
+                    <p style="margin-top: 5px; font-size: 0.75rem; color: #9ca3af; font-style: italic;">
+                      (Original: "${safeString(quote.quote)}")
+                    </p>
+                  ` : ''}
                   <p style="margin-top: 5px; font-size: 0.875rem; color: #6b7280;">
                     — ${safeString(quote.author)}, <em>${safeString(quote.commentary)}</em>
                   </p>
@@ -1528,7 +1628,9 @@ const BibleStudyCreator = () => {
         htmlContent += `</div>`;
       }
 
-      // Commentaries Used
+      } // End of else block for fallback content
+      
+      // Commentaries Used - Always add this from data as it might not be in the DOM
       if (studyGuide.commentariesUsed && Array.isArray(studyGuide.commentariesUsed) && studyGuide.commentariesUsed.length > 0) {
         htmlContent += `<div class="section commentary-section"><h2>${t('commentariesUsed')}</h2>`;
         
