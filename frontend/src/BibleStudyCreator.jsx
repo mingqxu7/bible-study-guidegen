@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Book, Search, Download, Users, Cross, MessageSquare, Globe, CheckCircle, Clock, AlertCircle, Loader2, ChevronDown, ChevronUp, HelpCircle, Languages } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import MigrationBanner from './MigrationBanner';
 
 // Use relative path for API which works for both development (with Vite proxy) and production (Vercel)
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
@@ -1682,6 +1683,7 @@ const BibleStudyCreator = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <MigrationBanner />
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">

@@ -121,6 +121,12 @@ const resources = {
         "theology": "Theological Perspective:",
         "keyInsights": "Key Insights:",
         "explanation": "Explanation:"
+      },
+      "migration": {
+        "title": "Important Notice: We're Moving!",
+        "message": "Our domain is changing from biblestudy.banaba.ai to biblestudy.aibanaba.com. Please update your bookmarks!",
+        "action": "Visit New Site",
+        "dismiss": "Dismiss"
       }
     }
   },
@@ -241,6 +247,12 @@ const resources = {
         "theology": "神学立场：",
         "keyInsights": "关键洞察：",
         "explanation": "解释："
+      },
+      "migration": {
+        "title": "重要通知：我们正在搬迁！",
+        "message": "我们的域名从 biblestudy.banaba.ai 更改为 biblestudy.aibanaba.com。请更新您的书签！",
+        "action": "访问新网站",
+        "dismiss": "关闭"
       }
     }
   }
