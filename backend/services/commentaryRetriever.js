@@ -105,12 +105,12 @@ export class CommentaryRetriever {
     // Normalize wide colons to narrow colons for consistent parsing
     const normalizedInput = verseInput.replace(/：/g, ':');
     // Handle Chinese format with colon like "太:10:4-8", "太：10:4-8" or "马太福音:10:4-8"
-    const chineseWithColonMatch = normalizedInput.match(/^([^\d\s:]+):(\d+)(?::(\d+)(?:-(\d+))?)?$/);
+    const chineseWithColonMatch = normalizedInput.match(/^([^\d\s:]+):\s*(\d+)(?::\s*(\d+)(?:-(\d+))?)?$/);
     if (chineseWithColonMatch) {
       const [, bookName, chapter, startVerse, endVerse] = chineseWithColonMatch;
       const normalizedBook = bookName.trim();
       const bookCode = bookMapping[normalizedBook];
-      
+
       if (!bookCode) {
         throw new Error(this.getErrorMessage('unknownBook', { bookName }, language));
       }
@@ -125,12 +125,12 @@ export class CommentaryRetriever {
     }
 
     // Handle Chinese format with space like "哥前 7:24-40" or "马太福音 5:1-12"
-    const chineseWithSpaceMatch = normalizedInput.match(/^([^\d\s:]+)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$/);
+    const chineseWithSpaceMatch = normalizedInput.match(/^([^\d\s:]+)\s+(\d+)(?::\s*(\d+)(?:-(\d+))?)?$/);
     if (chineseWithSpaceMatch) {
       const [, bookName, chapter, startVerse, endVerse] = chineseWithSpaceMatch;
       const normalizedBook = bookName.trim();
       const bookCode = bookMapping[normalizedBook];
-      
+
       if (bookCode) {
         return this.validateParsedReference({
           book: bookCode,
@@ -143,12 +143,12 @@ export class CommentaryRetriever {
     }
 
     // Handle Chinese format without colon like "太5:1-12" or "马太福音5:1-12"
-    const chineseNoColonMatch = normalizedInput.match(/^([^\d\s]+)(\d+)(?::(\d+)(?:-(\d+))?)?$/);
+    const chineseNoColonMatch = normalizedInput.match(/^([^\d\s]+)(\d+)(?::\s*(\d+)(?:-(\d+))?)?$/);
     if (chineseNoColonMatch) {
       const [, bookName, chapter, startVerse, endVerse] = chineseNoColonMatch;
       const normalizedBook = bookName.trim();
       const bookCode = bookMapping[normalizedBook];
-      
+
       if (bookCode) {
         return this.validateParsedReference({
           book: bookCode,
@@ -160,13 +160,13 @@ export class CommentaryRetriever {
       }
     }
 
-    // Handle English format like "John 3:16" or "Matthew 5:1-12"
-    const englishMatch = normalizedInput.match(/^(\d*\s*\w+)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$/i);
+    // Handle English format like "John 3:16", "Matthew 5:1-12", or "1 Corinthians 16: 1-15"
+    const englishMatch = normalizedInput.match(/^(\d*\s*\w+)\s+(\d+)(?::\s*(\d+)(?:-(\d+))?)?$/i);
     if (englishMatch) {
       const [, bookName, chapter, startVerse, endVerse] = englishMatch;
       const normalizedBook = bookName.toLowerCase().trim();
       const bookCode = bookMapping[normalizedBook];
-      
+
       if (!bookCode) {
         throw new Error(this.getErrorMessage('unknownBook', { bookName }, language));
       }

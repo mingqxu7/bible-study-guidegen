@@ -161,14 +161,14 @@ const BibleReferenceHover = ({ children, language = 'en' }) => {
 
   // Parse Bible reference from text
   const parseBibleReference = (text) => {
-    // Match patterns like "John 3:16", "Matthew 5:1-12", "太 3:16", "约一 2:1-3"
+    // Match patterns like "John 3:16", "Matthew 5:1-12", "1 Corinthians 16: 1-15", "太 3:16", "约一 2:1-3"
     const patterns = [
-      // English: "John 3:16", "1 Corinthians 13:4-8"
-      /\b(\d*\s*[A-Za-z]+(?:\s+[A-Za-z]+)*)\s+(\d+):(\d+)(?:-(\d+))?\b/g,
+      // English: "John 3:16", "1 Corinthians 13:4-8", "1 Corinthians 16: 1-15"
+      /\b(\d*\s*[A-Za-z]+(?:\s+[A-Za-z]+)*)\s+(\d+):\s*(\d+)(?:-(\d+))?\b/g,
       // Chinese: "太 3:16", "林前 13:4-8", "约一 2:1"
-      /([\u4e00-\u9fff]+)\s*(\d+):(\d+)(?:-(\d+))?/g,
+      /([\u4e00-\u9fff]+)\s*(\d+):\s*(\d+)(?:-(\d+))?/g,
       // Chinese with colon: "太：3:16"
-      /([\u4e00-\u9fff]+)[：:]\s*(\d+):(\d+)(?:-(\d+))?/g
+      /([\u4e00-\u9fff]+)[：:]\s*(\d+):\s*(\d+)(?:-(\d+))?/g
     ];
 
     for (const pattern of patterns) {
