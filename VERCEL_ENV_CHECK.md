@@ -5,7 +5,7 @@ Please verify these environment variables in your Vercel project settings:
 ## Required Variables
 
 1. **ANTHROPIC_MODEL**
-   - Current default in code: `claude-sonnet-4-20250514`
+   - Current default in code: `claude-haiku-4-5`
    - Make sure this is set to the same model or remove it to use the default
    - If using Claude 3.5, it might not follow the verbatim quotes instructions as well
 
@@ -32,5 +32,5 @@ Please verify these environment variables in your Vercel project settings:
 ## Quick Fix
 
 If you want to ensure verbatim quotes work regardless of model:
-- Set `ANTHROPIC_MODEL` to `claude-sonnet-4-20250514` in Vercel
+- Set `ANTHROPIC_MODEL` to `claude-haiku-4-5` in Vercel
 - Set `MAX_OUTPUT_TOKENS` to `24000` in Vercel

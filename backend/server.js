@@ -17,7 +17,7 @@ const PORT = process.env.PORT || 3001;
 const MAX_OUTPUT_TOKENS = parseInt(process.env.MAX_OUTPUT_TOKENS) || 24000;
 const MAX_COMMENTARIES = parseInt(process.env.MAX_COMMENTARIES) || 3;
 const MAX_VERSES = parseInt(process.env.MAX_VERSES) || 15;
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5';
 
 app.use(cors());
 app.use(express.json());

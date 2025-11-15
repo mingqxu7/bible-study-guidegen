@@ -61,7 +61,7 @@ Backend requires `.env` file with:
 - `MAX_COMMENTARIES`: Number of commentaries to fetch (defaults to 3)
 
 ### API Integration
-- **Claude AI**: Uses `claude-3-5-sonnet-20241022` model for study guide generation
+- **Claude AI**: Uses `claude-haiku-4-5` model for study guide generation
 - **StudyLight.org**: Web scraping for theological commentaries using axios and cheerio
 - **Bolls.life API**: Real-time Bible verse text retrieval for hover tooltips (ESV for English, CUV for Chinese)
 - Frontend communicates with backend via REST API at `http://localhost:3001/api`
