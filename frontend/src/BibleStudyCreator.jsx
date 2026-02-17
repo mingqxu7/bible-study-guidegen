@@ -1837,10 +1837,10 @@ const BibleStudyCreator = () => {
                         className="text-indigo-600"
                       />
                       <div>
-                        <h3 className="font-semibold text-gray-800">{stance.name}</h3>
-                        <p className="text-sm text-gray-600">{stance.description}</p>
+                        <h3 className="font-semibold text-gray-800 dark:text-gray-100">{stance.name}</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">{stance.description}</p>
                         <div className="flex items-center justify-between mt-1">
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             {t('commentariesLabel')} {stance.commentaries.length} available
                           </p>
                           {selectedTheology === stance.id && expandedTheology !== stance.id && (
@@ -1855,8 +1855,8 @@ const BibleStudyCreator = () => {
                     
                     {/* Expandable commentary selection */}
                     {selectedTheology === stance.id && expandedTheology === stance.id && (
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <p className="text-sm font-medium text-gray-700 mb-2">
+                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                           {t('selectUpTo')} {MAX_COMMENTARIES} {t('commentaries')}:
                         </p>
                         <div className="space-y-2">
@@ -1869,7 +1869,7 @@ const BibleStudyCreator = () => {
                               <label
                                 key={commentary.code}
                                 className={`flex items-start gap-2 p-2 rounded cursor-pointer transition-all ${
-                                  isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                                  isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                                 }`}
                               >
                                 <input
@@ -1888,14 +1888,14 @@ const BibleStudyCreator = () => {
                                   className="mt-1 text-indigo-600"
                                 />
                                 <div className="flex-1">
-                                  <p className="text-sm font-medium text-gray-700">{commentary.name}</p>
-                                  <p className="text-xs text-gray-500">{commentary.author}</p>
+                                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{commentary.name}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">{commentary.author}</p>
                                 </div>
                               </label>
                             );
                           })}
                         </div>
-                        <p className="text-xs text-gray-500 mt-2">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                           {Object.values(selectedCommentaries[stance.id] || {}).filter(v => v).length} / {MAX_COMMENTARIES} {t('selected')}
                         </p>
                       </div>
