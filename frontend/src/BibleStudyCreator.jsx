@@ -1,8 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Book, Search, Download, Users, Cross, MessageSquare, Globe, CheckCircle, Clock, AlertCircle, Loader2, ChevronDown, ChevronUp, HelpCircle, Languages } from 'lucide-react';
+import { Book, Search, Download, Users, Cross, MessageSquare, Globe, CheckCircle, Clock, AlertCircle, Loader2, ChevronDown, ChevronUp, HelpCircle, Languages, Moon, Sun, History, Maximize2, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import MigrationBanner from './MigrationBanner';
+import { useDarkMode } from './hooks/useDarkMode';
+import { useStudyHistory } from './hooks/useStudyHistory';
+import HistoryDrawer from './components/HistoryDrawer';
+import FullStudyGuideView from './components/FullStudyGuideView';
+import { exportStudyGuideAsMarkdown } from './utils/exportMarkdown';
 
 // Use relative path for API which works for both development (with Vite proxy) and production (Vercel)
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
@@ -703,6 +708,8 @@ const parseMarkdownToHTML = (markdown) => {
 
 const BibleStudyCreator = () => {
   const { t, i18n } = useTranslation();
+  const { darkMode, toggleDarkMode } = useDarkMode();
+  const { history, saveStudy, deleteStudy, clearHistory } = useStudyHistory();
   const [selectedTheology, setSelectedTheology] = useState('');
   const [verseInput, setVerseInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -720,9 +727,38 @@ const BibleStudyCreator = () => {
   const [quoteTranslations, setQuoteTranslations] = useState({});
   const [loadingTranslations, setLoadingTranslations] = useState({});
   const [showTranslation, setShowTranslation] = useState({});
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [fullViewGuide, setFullViewGuide] = useState(null);
   const studyGuideRef = useRef(null);
   const streamingContentRef = useRef(null);
   const MAX_COMMENTARIES = 3;
+
+  // Save study to history whenever a new guide is generated
+  useEffect(() => {
+    if (studyGuide && selectedTheology) {
+      saveStudy(studyGuide, selectedTheology, selectedCommentaries[selectedTheology] || {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studyGuide]);
+
+  // Restore a study from history (uses theologyId, locale-safe)
+  const restoreFromHistory = (entry) => {
+    setStudyGuide(entry.studyGuide);
+    setSelectedTheology(entry.theologyId);
+    setVerseInput(entry.passage || '');
+    if (entry.selectedCommentaries) {
+      setSelectedCommentaries((prev) => ({
+        ...prev,
+        [entry.theologyId]: entry.selectedCommentaries,
+      }));
+    }
+    // Reset transient state
+    setError('');
+    setReferenceAnswers({});
+    setExpandedAnswers({});
+    setQuoteTranslations({});
+    setShowTranslation({});
+  };
 
   // Auto-scroll streaming content to bottom when new tokens arrive
   useEffect(() => {
@@ -962,7 +998,7 @@ const BibleStudyCreator = () => {
       const limitMatch = errorMessage.match(/(?:no more than|不超过)\s+(\d+)\s+(?:verses|节)/);
       if (limitMatch) {
         const limit = limitMatch[1];
-        return i18n.language === 'zh' 
+        return i18n.language.startsWith('zh') 
           ? `选择的经文太多，请选择不超过 ${limit} 节的经文。`
           : `Too many verses selected. Please select no more than ${limit} verses.`;
       }
@@ -1144,7 +1180,7 @@ const BibleStudyCreator = () => {
       // Add a progress step for fallback
       setProgressSteps([{
         id: 'fallback',
-        message: i18n.language === 'zh' ? '实时更新不可用，使用标准模式生成...' : 'Real-time updates unavailable, using standard mode...',
+        message: i18n.language.startsWith('zh') ? '实时更新不可用，使用标准模式生成...' : 'Real-time updates unavailable, using standard mode...',
         timestamp: new Date(),
         details: null
       }]);
@@ -1408,7 +1444,7 @@ const BibleStudyCreator = () => {
         </head>
         <body>
           <button class="print-button no-print" onclick="window.print()">
-            ${i18n.language === 'zh' ? '打印/保存为PDF' : 'Print/Save as PDF'}
+            ${i18n.language.startsWith('zh') ? '打印/保存为PDF' : 'Print/Save as PDF'}
           </button>
           
           <div class="header">
@@ -1666,7 +1702,7 @@ const BibleStudyCreator = () => {
       printWindow.document.close();
 
       // Show instructions
-      const message = i18n.language === 'zh' 
+      const message = i18n.language.startsWith('zh') 
         ? '请在新窗口中点击"打印/保存为PDF"按钮，然后选择"另存为PDF"' 
         : 'Please click the "Print/Save as PDF" button in the new window, then choose "Save as PDF"';
       
@@ -1677,43 +1713,77 @@ const BibleStudyCreator = () => {
 
     } catch (error) {
       console.error('PDF export failed:', error);
-      alert(i18n.language === 'zh' ? 'PDF导出失败，请重试' : 'PDF export failed, please try again');
+      alert(i18n.language.startsWith('zh') ? 'PDF导出失败，请重试' : 'PDF export failed, please try again');
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className={`min-h-screen p-4 transition-colors duration-300 ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gradient-to-br from-blue-50 to-indigo-100'}`}>
       <MigrationBanner />
+      {/* History Drawer */}
+      <HistoryDrawer
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        history={history}
+        onRestore={restoreFromHistory}
+        onDelete={deleteStudy}
+        onClearAll={clearHistory}
+        darkMode={darkMode}
+      />
+      {/* Full Study Guide Modal */}
+      {fullViewGuide && (
+        <FullStudyGuideView
+          studyGuide={fullViewGuide}
+          onClose={() => setFullViewGuide(null)}
+          onExportMd={(guide) => exportStudyGuideAsMarkdown(guide, i18n.language)}
+          darkMode={darkMode}
+        />
+      )}
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <Cross className="w-8 h-8 text-indigo-600" />
-            <h1 className="text-4xl font-bold text-gray-800">{t('title')}</h1>
-            <Book className="w-8 h-8 text-indigo-600" />
+            <Cross className={`w-8 h-8 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
+            <h1 className={`text-4xl font-bold ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>{t('title')}</h1>
+            <Book className={`w-8 h-8 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
           </div>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className={`text-lg max-w-2xl mx-auto ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
             {t('subtitle')}
           </p>
-          <div className="mt-4">
+          <div className="mt-4 flex items-center justify-center gap-3 flex-wrap">
             <button
               onClick={() => i18n.changeLanguage(i18n.language === 'en' ? 'zh' : 'en')}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors"
+              className={`inline-flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-colors ${darkMode ? 'bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-200' : 'bg-white border-gray-300 hover:bg-gray-50'}`}
             >
               <Globe className="w-4 h-4" />
               <span className="font-medium">{i18n.language === 'en' ? '中文' : 'English'}</span>
+            </button>
+            <button
+              onClick={toggleDarkMode}
+              className={`inline-flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-colors ${darkMode ? 'bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-200' : 'bg-white border-gray-300 hover:bg-gray-50'}`}
+              title={darkMode ? 'Light mode' : 'Dark mode'}
+            >
+              {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={() => setHistoryOpen(true)}
+              className={`inline-flex items-center gap-2 px-4 py-2 border rounded-lg shadow-sm transition-colors ${darkMode ? 'bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-200' : 'bg-white border-gray-300 hover:bg-gray-50'}`}
+              title={i18n.language.startsWith('zh') ? '学习历史' : 'Study History'}
+            >
+              <History className="w-4 h-4" />
+              {history.length > 0 && <span className="text-xs font-semibold">{history.length}</span>}
             </button>
           </div>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
-              <Users className="w-6 h-6 text-indigo-600" />
+          <div className={`rounded-xl shadow-lg p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <h2 className={`text-2xl font-semibold mb-6 flex items-center gap-2 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>
+              <Users className={`w-6 h-6 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
               {t('studyConfig')}
             </h2>
 
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
+              <label className={`block text-sm font-medium mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 {t('selectTheology')}
               </label>
               <div className="space-y-3">
@@ -1722,8 +1792,8 @@ const BibleStudyCreator = () => {
                     key={stance.id}
                     className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
                       selectedTheology === stance.id
-                        ? 'border-indigo-500 bg-indigo-50'
-                        : 'border-gray-200 hover:border-indigo-300'
+                        ? darkMode ? 'border-indigo-400 bg-indigo-900/30' : 'border-indigo-500 bg-indigo-50'
+                        : darkMode ? 'border-gray-600 hover:border-indigo-400' : 'border-gray-200 hover:border-indigo-300'
                     }`}
                     onClick={() => {
                       setSelectedTheology(stance.id);
@@ -1767,10 +1837,10 @@ const BibleStudyCreator = () => {
                         className="text-indigo-600"
                       />
                       <div>
-                        <h3 className="font-semibold text-gray-800">{stance.name}</h3>
-                        <p className="text-sm text-gray-600">{stance.description}</p>
+                        <h3 className="font-semibold text-gray-800 dark:text-gray-100">{stance.name}</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">{stance.description}</p>
                         <div className="flex items-center justify-between mt-1">
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             {t('commentariesLabel')} {stance.commentaries.length} available
                           </p>
                           {selectedTheology === stance.id && expandedTheology !== stance.id && (
@@ -1785,8 +1855,8 @@ const BibleStudyCreator = () => {
                     
                     {/* Expandable commentary selection */}
                     {selectedTheology === stance.id && expandedTheology === stance.id && (
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <p className="text-sm font-medium text-gray-700 mb-2">
+                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                           {t('selectUpTo')} {MAX_COMMENTARIES} {t('commentaries')}:
                         </p>
                         <div className="space-y-2">
@@ -1799,7 +1869,7 @@ const BibleStudyCreator = () => {
                               <label
                                 key={commentary.code}
                                 className={`flex items-start gap-2 p-2 rounded cursor-pointer transition-all ${
-                                  isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                                  isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                                 }`}
                               >
                                 <input
@@ -1818,14 +1888,14 @@ const BibleStudyCreator = () => {
                                   className="mt-1 text-indigo-600"
                                 />
                                 <div className="flex-1">
-                                  <p className="text-sm font-medium text-gray-700">{commentary.name}</p>
-                                  <p className="text-xs text-gray-500">{commentary.author}</p>
+                                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{commentary.name}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">{commentary.author}</p>
                                 </div>
                               </label>
                             );
                           })}
                         </div>
-                        <p className="text-xs text-gray-500 mt-2">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                           {Object.values(selectedCommentaries[stance.id] || {}).filter(v => v).length} / {MAX_COMMENTARIES} {t('selected')}
                         </p>
                       </div>
@@ -1836,15 +1906,21 @@ const BibleStudyCreator = () => {
             </div>
 
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 {t('biblePassage')}
               </label>
               <input
                 type="text"
                 value={verseInput}
                 onChange={(e) => setVerseInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !isGenerating && selectedTheology && verseInput.trim()) {
+                    e.preventDefault();
+                    generateStudyGuide();
+                  }
+                }}
                 placeholder={t('passagePlaceholder')}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400' : 'border-gray-300'}`}
               />
               <p className="text-xs text-gray-500 mt-1">
                 {t('passageHint')}
@@ -1859,7 +1935,7 @@ const BibleStudyCreator = () => {
               {isGenerating ? (
                 <>
                   <Search className="w-5 h-5 opacity-50" />
-                  {i18n.language === 'zh' ? '正在生成...' : 'Generating...'}
+                  {i18n.language.startsWith('zh') ? '正在生成...' : 'Generating...'}
                 </>
               ) : (
                 <>
@@ -1876,20 +1952,36 @@ const BibleStudyCreator = () => {
             )}
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className={`rounded-xl shadow-lg p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-                <MessageSquare className="w-6 h-6 text-indigo-600" />
+              <h2 className={`text-2xl font-semibold flex items-center gap-2 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>
+                <MessageSquare className={`w-6 h-6 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
                 {t('studyGuide')}
               </h2>
               {studyGuide && (
-                <button
-                  onClick={exportToPDF}
-                  className="bg-green-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
-                >
-                  <Download className="w-4 h-4" />
-                  {i18n.language === 'zh' ? '导出PDF' : 'Export PDF'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setFullViewGuide(studyGuide)}
+                    className={`py-2 px-3 rounded-lg font-medium transition-colors flex items-center gap-1 ${darkMode ? 'bg-indigo-700 text-white hover:bg-indigo-600' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}`}
+                    title={i18n.language.startsWith('zh') ? '全屏查看' : 'Full View'}
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => exportStudyGuideAsMarkdown(studyGuide, i18n.language)}
+                    className={`py-2 px-3 rounded-lg font-medium transition-colors flex items-center gap-1 ${darkMode ? 'bg-purple-700 text-white hover:bg-purple-600' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}
+                    title="Export Markdown"
+                  >
+                    <FileText className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={exportToPDF}
+                    className="bg-green-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    {i18n.language.startsWith('zh') ? '导出PDF' : 'Export PDF'}
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1905,10 +1997,10 @@ const BibleStudyCreator = () => {
                 <div className="text-center py-6">
                   <Loader2 className="w-8 h-8 mx-auto mb-4 text-indigo-600 animate-spin" />
                   <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                    {i18n.language === 'zh' ? '正在生成学习指南...' : 'Generating Study Guide...'}
+                    {i18n.language.startsWith('zh') ? '正在生成学习指南...' : 'Generating Study Guide...'}
                   </h3>
                   <p className="text-sm text-gray-600">
-                    {i18n.language === 'zh' ? '请查看下方的详细进度信息' : 'See detailed progress information below'}
+                    {i18n.language.startsWith('zh') ? '请查看下方的详细进度信息' : 'See detailed progress information below'}
                   </p>
                 </div>
                 
@@ -1939,10 +2031,10 @@ const BibleStudyCreator = () => {
                     <div className="flex items-center gap-2 mb-3">
                       <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
                       <h4 className="font-medium text-gray-800">
-                        {i18n.language === 'zh' ? 'Claude 正在生成回应...' : 'Claude is generating response...'}
+                        {i18n.language.startsWith('zh') ? 'Claude 正在生成回应...' : 'Claude is generating response...'}
                       </h4>
                       <span className="text-xs text-gray-500">
-                        {streamingContent.length} {i18n.language === 'zh' ? '字符' : 'characters'}
+                        {streamingContent.length} {i18n.language.startsWith('zh') ? '字符' : 'characters'}
                       </span>
                     </div>
                     <div 
@@ -2051,7 +2143,7 @@ const BibleStudyCreator = () => {
                                           <span>"{quote.quote}"</span>
                                         )}
                                       </blockquote>
-                                      {i18n.language === 'zh' && (
+                                      {i18n.language.startsWith('zh') && (
                                         <button
                                           onClick={() => {
                                             console.log('Translation button clicked for quote:', quoteId);
@@ -2156,7 +2248,7 @@ const BibleStudyCreator = () => {
                               ) : (
                                 <>
                                   <HelpCircle className="w-3 h-3" />
-                                  {i18n.language === 'zh' ? '参考答案' : 'Reference Answer'}
+                                  {i18n.language.startsWith('zh') ? '参考答案' : 'Reference Answer'}
                                 </>
                               )}
                             </button>
@@ -2304,7 +2396,7 @@ const BibleStudyCreator = () => {
                     className="bg-green-600 text-white py-2 px-6 rounded-lg font-medium hover:bg-green-700 transition-colors inline-flex items-center gap-2"
                   >
                     <Download className="w-5 h-5" />
-                    {i18n.language === 'zh' ? '导出PDF' : 'Export PDF'}
+                    {i18n.language.startsWith('zh') ? '导出PDF' : 'Export PDF'}
                   </button>
                 </div>
 
@@ -2318,24 +2410,24 @@ const BibleStudyCreator = () => {
         </div>
 
         <div className="mt-12 grid md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow-lg text-center">
-            <Cross className="w-12 h-12 text-indigo-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">{t('features.theological')}</h3>
-            <p className="text-gray-600 text-sm">
+          <div className={`p-6 rounded-xl shadow-lg text-center ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <Cross className={`w-12 h-12 mx-auto mb-4 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
+            <h3 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>{t('features.theological')}</h3>
+            <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               {t('features.theologicalDesc')}
             </p>
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-lg text-center">
-            <Book className="w-12 h-12 text-indigo-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">{t('features.comprehensive')}</h3>
-            <p className="text-gray-600 text-sm">
+          <div className={`p-6 rounded-xl shadow-lg text-center ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <Book className={`w-12 h-12 mx-auto mb-4 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
+            <h3 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>{t('features.comprehensive')}</h3>
+            <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               {t('features.comprehensiveDesc')}
             </p>
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-lg text-center">
-            <Users className="w-12 h-12 text-indigo-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">{t('features.groupReady')}</h3>
-            <p className="text-gray-600 text-sm">
+          <div className={`p-6 rounded-xl shadow-lg text-center ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <Users className={`w-12 h-12 mx-auto mb-4 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
+            <h3 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>{t('features.groupReady')}</h3>
+            <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               {t('features.groupReadyDesc')}
             </p>
           </div>

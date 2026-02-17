@@ -22,6 +22,17 @@
   background: #6b7280;
 }
 
+/* Dark-mode scrollbar overrides */
+.dark .study-guide-scroll::-webkit-scrollbar-track {
+  background: #374151;
+}
+.dark .study-guide-scroll::-webkit-scrollbar-thumb {
+  background: #6b7280;
+}
+.dark .study-guide-scroll::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
 /* Force scrollbar visibility on mobile */
 @media (max-width: 768px) {
   .study-guide-scroll {
@@ -31,5 +42,63 @@
   
   .study-guide-scroll::-webkit-scrollbar {
     width: 6px;
+  }
+}
+
+/* ============================================================
+   Print Styles
+   - Hide non-essential UI (header, sidebar, buttons, controls)
+   - Show .print-modal-content (the Full Study View modal) full-width
+   - Do NOT hide .min-h-screen if it contains the modal
+   ============================================================ */
+@media print {
+  /* Hide all top-level UI children that are NOT the modal */
+  body > *:not(.modal):not(#root) {
+    display: none !important;
+  }
+
+  /* Inside #root, hide everything except the modal overlay */
+  #root > .min-h-screen > *:not(.modal) {
+    display: none !important;
+  }
+
+  /* Hide buttons / interactive elements */
+  .no-print,
+  button.no-print,
+  .no-print * {
+    display: none !important;
+  }
+
+  /* The modal itself should be static, full-width, no overlay bg */
+  .modal {
+    position: static !important;
+    background: transparent !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+  .modal > * {
+    max-width: 100% !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Ensure the print-modal-content renders cleanly */
+  .print-modal-content {
+    box-shadow: none !important;
+    border: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Remove background colours for printer-friendliness */
+  * {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Page margins */
+  @page {
+    margin: 1cm;
   }
 }
