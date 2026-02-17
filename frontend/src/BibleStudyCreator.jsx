@@ -77,6 +77,10 @@ const BibleStudyCreator = () => {
 
   // Function to translate error messages from backend
   const translateError = (errorMessage) => {
+    if (!errorMessage || typeof errorMessage !== 'string') {
+      return t('errors.serverError');
+    }
+
     if (errorMessage.includes('Please specify verses, not just chapter') || errorMessage.includes('请指定经文，不只是章节')) {
       return t('errors.specifyVerses');
     }
@@ -91,6 +95,36 @@ const BibleStudyCreator = () => {
     }
     // For any other backend errors, return as is (they should already be in the correct language)
     return errorMessage;
+  };
+
+  const upsertProgressStep = (stepId, message, details = null) => {
+    const newStep = {
+      id: stepId,
+      message,
+      timestamp: new Date(),
+      details
+    };
+
+    setProgressSteps(prevSteps => {
+      const existingIndex = prevSteps.findIndex(step => step.id === stepId);
+      if (existingIndex >= 0) {
+        const updatedSteps = [...prevSteps];
+        updatedSteps[existingIndex] = newStep;
+        return updatedSteps;
+      }
+      return [...prevSteps, newStep];
+    });
+
+    setCurrentStep(stepId);
+  };
+
+  const finishGenerationSuccess = (generatedStudyGuide, verse, theologyId, stances, language) => {
+    setStudyGuide(generatedStudyGuide);
+    setCurrentStep('completed');
+    setIsGenerating(false);
+
+    const theologyName = stances.find(s => s.id === theologyId)?.name || theologyId;
+    addEntry(generatedStudyGuide, verse, theologyName, language, theologyId);
   };
 
   const theologicalStances = [
@@ -174,6 +208,65 @@ const BibleStudyCreator = () => {
     setProgressSteps([]);
     setCurrentStep(null);
 
+    const requestBody = {
+      verseInput,
+      selectedTheology,
+      theologicalStances: getActiveStances(),
+      language: i18n.language
+    };
+
+    const isChinese = i18n.language === 'zh' || i18n.language.startsWith('zh');
+    const fallbackStepMessage = isChinese
+      ? '实时进度不可用，正在切换到标准生成模式...'
+      : 'Live progress unavailable, switching to standard generation...';
+    const fallbackGeneratingMessage = isChinese
+      ? '正在生成学习指南...'
+      : 'Generating study guide...';
+
+    const generateWithPostFallback = async () => {
+      try {
+        upsertProgressStep('fallback_post', fallbackStepMessage);
+        upsertProgressStep('generating_guide', fallbackGeneratingMessage);
+
+        const response = await fetch(`${API_BASE_URL}/generate-study`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        const raw = await response.text();
+        let data = null;
+
+        try {
+          data = raw ? JSON.parse(raw) : null;
+        } catch {
+          throw new Error(`Unexpected response format (HTTP ${response.status})`);
+        }
+
+        if (!response.ok) {
+          throw new Error(data?.error || `Request failed (HTTP ${response.status})`);
+        }
+
+        finishGenerationSuccess(data, verseInput, selectedTheology, theologicalStances, i18n.language);
+      } catch (fallbackError) {
+        console.error('POST fallback generation error:', fallbackError);
+        setError(translateError(fallbackError.message));
+        setIsGenerating(false);
+      }
+    };
+
+    let hasFinished = false;
+    let hasStartedFallback = false;
+
+    const startFallbackIfNeeded = async () => {
+      if (hasFinished || hasStartedFallback) return;
+      hasStartedFallback = true;
+      await generateWithPostFallback();
+      hasFinished = true;
+    };
+
     try {
       const urlParams = new URLSearchParams({
         verseInput,
@@ -185,58 +278,37 @@ const BibleStudyCreator = () => {
       const eventSource = new EventSource(`${API_BASE_URL}/generate-study-stream?${urlParams}`);
 
       eventSource.onmessage = (event) => {
+        if (hasFinished) return;
+
         try {
           const data = JSON.parse(event.data);
           
           if (data.error) {
             setError(translateError(data.error) || t('errors.serverError'));
+            hasFinished = true;
             eventSource.close();
             setIsGenerating(false);
             return;
           }
 
           if (data.type === 'progress') {
-            const newStep = {
-              id: data.step,
-              message: data.message,
-              timestamp: new Date(),
-              details: data.details || null
-            };
-            
-            setProgressSteps(prevSteps => {
-              const existingIndex = prevSteps.findIndex(step => step.id === data.step);
-              if (existingIndex >= 0) {
-                const updatedSteps = [...prevSteps];
-                updatedSteps[existingIndex] = newStep;
-                return updatedSteps;
-              } else {
-                return [...prevSteps, newStep];
-              }
-            });
-            
-            setCurrentStep(data.step);
+            upsertProgressStep(data.step, data.message, data.details || null);
           } else if (data.type === 'complete') {
-            setStudyGuide(data.data);
-            setCurrentStep('completed');
+            hasFinished = true;
             eventSource.close();
-            setIsGenerating(false);
-            // Save to history
-            const theologyName = theologicalStances.find(s => s.id === selectedTheology)?.name || selectedTheology;
-            addEntry(data.data, verseInput, theologyName, i18n.language, selectedTheology);
+            finishGenerationSuccess(data.data, verseInput, selectedTheology, theologicalStances, i18n.language);
           }
         } catch (parseError) {
           console.error('Failed to parse SSE data:', event.data);
-          setError(t('errors.serverError'));
           eventSource.close();
-          setIsGenerating(false);
+          void startFallbackIfNeeded();
         }
       };
 
       eventSource.onerror = (error) => {
         console.error('SSE connection error:', error);
-        setError(t('errors.serverError'));
         eventSource.close();
-        setIsGenerating(false);
+        void startFallbackIfNeeded();
       };
 
       // Cleanup function
@@ -246,8 +318,7 @@ const BibleStudyCreator = () => {
 
     } catch (error) {
       console.error('Error setting up SSE:', error);
-      setError(translateError(error.message) || t('errors.serverError'));
-      setIsGenerating(false);
+      await startFallbackIfNeeded();
     }
   };
 
