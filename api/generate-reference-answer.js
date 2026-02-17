@@ -36,7 +36,7 @@ export default async function handler(req, res) {
 
     if (!question || !passage) {
       return res.status(400).json({ 
-        error: language === 'zh' ? '缺少必需的参数' : 'Missing required parameters' 
+        error: (language === 'zh' || language.startsWith('zh')) ? '缺少必需的参数' : 'Missing required parameters' 
       });
     }
 
@@ -44,7 +44,7 @@ export default async function handler(req, res) {
     // Build context for the LLM
     let contextPrompt = '';
     
-    if (language === 'zh') {
+    if (language === 'zh' || language.startsWith('zh')) {
       contextPrompt = `作为圣经学者和牧师，请为以下讨论问题提供一个深思熟虑、符合圣经的参考答案。
 
 **经文背景:**
@@ -122,7 +122,7 @@ Please respond in English.`;
 
     if (!referenceAnswer) {
       return res.status(500).json({ 
-        error: language === 'zh' ? '生成参考答案失败' : 'Failed to generate reference answer' 
+        error: (language === 'zh' || language.startsWith('zh')) ? '生成参考答案失败' : 'Failed to generate reference answer' 
       });
     }
 
@@ -137,16 +137,16 @@ Please respond in English.`;
     console.error('Error generating reference answer:', error);
     
     let errorMessage = 'Failed to generate reference answer';
-    if (req.body?.language === 'zh') {
+    if (req.body?.language === 'zh' || req.body?.language?.startsWith('zh')) {
       errorMessage = '生成参考答案失败，请重试';
     }
     
     if (error.status === 429) {
-      errorMessage = req.body?.language === 'zh' 
+      errorMessage = (req.body?.language === 'zh' || req.body?.language?.startsWith('zh')) 
         ? 'API请求过于频繁，请稍后重试' 
         : 'Rate limit exceeded. Please try again later.';
     } else if (error.status === 401) {
-      errorMessage = req.body?.language === 'zh' 
+      errorMessage = (req.body?.language === 'zh' || req.body?.language?.startsWith('zh')) 
         ? 'API密钥无效' 
         : 'Invalid API key';
     }
