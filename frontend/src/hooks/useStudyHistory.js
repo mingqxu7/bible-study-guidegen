@@ -31,11 +31,12 @@ export function useStudyHistory() {
     }
   }, []);
 
-  const addEntry = useCallback((studyGuide, passage, theology, language) => {
+  const addEntry = useCallback((studyGuide, passage, theology, language, theologyId) => {
     const entry = {
       id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2),
       passage,
       theology,
+      theologyId: theologyId || theology,
       language,
       createdAt: new Date().toISOString(),
       studyGuide,

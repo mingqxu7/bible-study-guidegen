@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Book, Search, Download, Users, Cross, MessageSquare, Globe, CheckCircle, Clock, AlertCircle, Loader2, Moon, Sun, Maximize2 } from 'lucide-react';
+import { Book, Search, Download, Users, Cross, MessageSquare, Globe, CheckCircle, Clock, AlertCircle, Loader2, Moon, Sun, Maximize2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useStudyHistory } from './hooks/useStudyHistory';
 import { useDarkMode } from './hooks/useDarkMode';
@@ -13,6 +13,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 const BibleStudyCreator = () => {
   const { t, i18n } = useTranslation();
   const [selectedTheology, setSelectedTheology] = useState('');
+  const [expandedTheology, setExpandedTheology] = useState(null);
+  const [selectedCommentaries, setSelectedCommentaries] = useState({});
   const [verseInput, setVerseInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [studyGuide, setStudyGuide] = useState(null);
@@ -124,6 +126,42 @@ const BibleStudyCreator = () => {
     }
   ];
 
+  // When a theology is selected, default all its commentaries to selected
+  const handleTheologySelect = (stanceId) => {
+    setSelectedTheology(stanceId);
+    if (!selectedCommentaries[stanceId]) {
+      const stance = theologicalStances.find(s => s.id === stanceId);
+      if (stance) {
+        setSelectedCommentaries(prev => ({
+          ...prev,
+          [stanceId]: new Set(stance.commentaries),
+        }));
+      }
+    }
+  };
+
+  const toggleCommentary = (stanceId, commentary) => {
+    setSelectedCommentaries(prev => {
+      const current = prev[stanceId] ? new Set(prev[stanceId]) : new Set();
+      if (current.has(commentary)) {
+        current.delete(commentary);
+      } else {
+        current.add(commentary);
+      }
+      return { ...prev, [stanceId]: current };
+    });
+  };
+
+  // Build theologicalStances with only the selected commentaries for the active theology
+  const getActiveStances = () => {
+    return theologicalStances.map(stance => {
+      if (stance.id === selectedTheology && selectedCommentaries[stance.id]) {
+        return { ...stance, commentaries: stance.commentaries.filter(c => selectedCommentaries[stance.id].has(c)) };
+      }
+      return stance;
+    });
+  };
+
   const generateStudyGuide = async () => {
     if (!selectedTheology || !verseInput.trim()) {
       setError(t('errors.selectBoth'));
@@ -140,7 +178,7 @@ const BibleStudyCreator = () => {
       const urlParams = new URLSearchParams({
         verseInput,
         selectedTheology,
-        theologicalStances: JSON.stringify(theologicalStances),
+        theologicalStances: JSON.stringify(getActiveStances()),
         language: i18n.language
       });
 
@@ -184,7 +222,7 @@ const BibleStudyCreator = () => {
             setIsGenerating(false);
             // Save to history
             const theologyName = theologicalStances.find(s => s.id === selectedTheology)?.name || selectedTheology;
-            addEntry(data.data, verseInput, theologyName, i18n.language);
+            addEntry(data.data, verseInput, theologyName, i18n.language, selectedTheology);
           }
         } catch (parseError) {
           console.error('Failed to parse SSE data:', event.data);
@@ -216,10 +254,15 @@ const BibleStudyCreator = () => {
   const handleHistorySelect = (entry) => {
     setStudyGuide(entry.studyGuide);
     setVerseInput(entry.passage);
-    // Find matching theology ID
-    const theologyEntry = theologicalStances.find(s => s.name === entry.theology);
-    if (theologyEntry) {
-      setSelectedTheology(theologyEntry.id);
+    // Use theologyId if available (new format), fall back to matching by display name (legacy)
+    if (entry.theologyId && theologicalStances.some(s => s.id === entry.theologyId)) {
+      setSelectedTheology(entry.theologyId);
+    } else {
+      // Legacy entries without theologyId: try matching by display name
+      const theologyEntry = theologicalStances.find(s => s.name === entry.theology);
+      if (theologyEntry) {
+        setSelectedTheology(theologyEntry.id);
+      }
     }
     setError('');
     setProgressSteps([]);
@@ -405,36 +448,78 @@ ${t('downloadHeaders.generatedBy')}`;
                   {t('selectTheology')}
                 </label>
                 <div className="space-y-2">
-                  {theologicalStances.map((stance) => (
-                    <div
-                      key={stance.id}
-                      className={`p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                        selectedTheology === stance.id
-                          ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 dark:border-indigo-500'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-600'
-                      }`}
-                      onClick={() => setSelectedTheology(stance.id)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="radio"
-                          name="theology"
-                          value={stance.id}
-                          checked={selectedTheology === stance.id}
-                          onChange={() => setSelectedTheology(stance.id)}
-                          className="text-indigo-600"
-                        />
-                        <div>
-                          <h3 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{stance.name}</h3>
-                          <p className="text-xs text-gray-600 dark:text-gray-400">{stance.description}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                            {t('commentariesLabel')} {stance.commentaries.slice(0, 2).join(', ')}
-                            {stance.commentaries.length > 2 && '...'}
-                          </p>
+                  {theologicalStances.map((stance) => {
+                    const isSelected = selectedTheology === stance.id;
+                    const isExpanded = expandedTheology === stance.id;
+                    const stanceCommentaries = selectedCommentaries[stance.id] || new Set(stance.commentaries);
+                    return (
+                      <div
+                        key={stance.id}
+                        className={`border-2 rounded-lg transition-all ${
+                          isSelected
+                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 dark:border-indigo-500'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-600'
+                        }`}
+                      >
+                        <div
+                          className="p-3 cursor-pointer"
+                          onClick={() => handleTheologySelect(stance.id)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="radio"
+                              name="theology"
+                              value={stance.id}
+                              checked={isSelected}
+                              onChange={() => handleTheologySelect(stance.id)}
+                              className="text-indigo-600"
+                            />
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{stance.name}</h3>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">{stance.description}</p>
+                              <div className="flex items-center justify-between mt-1">
+                                <p className="text-xs text-gray-500 dark:text-gray-500">
+                                  {t('commentariesLabel')} {stanceCommentaries.size}/{stance.commentaries.length} {i18n.language === 'zh' ? '已选' : 'selected'}
+                                </p>
+                                {isSelected && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setExpandedTheology(isExpanded ? null : stance.id);
+                                    }}
+                                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-0.5"
+                                  >
+                                    {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                    {isExpanded ? (i18n.language === 'zh' ? '收起' : 'Hide') : (i18n.language === 'zh' ? '选择注释书' : 'Select commentaries')}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         </div>
+                        {isSelected && isExpanded && (
+                          <div className="px-3 pb-3 pt-0 border-t border-indigo-200 dark:border-indigo-700">
+                            <div className="mt-2 space-y-1.5 pl-7">
+                              {stance.commentaries.map((commentary) => (
+                                <label
+                                  key={commentary}
+                                  className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={stanceCommentaries.has(commentary)}
+                                    onChange={() => toggleCommentary(stance.id, commentary)}
+                                    className="rounded text-indigo-600 w-3.5 h-3.5"
+                                  />
+                                  {commentary}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -446,7 +531,7 @@ ${t('downloadHeaders.generatedBy')}`;
                   type="text"
                   value={verseInput}
                   onChange={(e) => setVerseInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') generateStudyGuide(); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !isGenerating) generateStudyGuide(); }}
                   placeholder={t('passagePlaceholder')}
                   className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500"
                 />

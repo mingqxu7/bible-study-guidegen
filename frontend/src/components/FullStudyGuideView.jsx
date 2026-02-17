@@ -240,10 +240,8 @@ const FullStudyGuideView = ({ studyGuide, onClose }) => {
                       />
                     </button>
 
-                    {(isExpanded || true) && (
-                      <div
-                        className={`transition-all duration-200 ${isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'} print:max-h-none print:opacity-100`}
-                      >
+                    {isExpanded && (
+                      <div className="transition-all duration-200 max-h-[2000px] opacity-100 print:max-h-none print:opacity-100">
                         <div className="px-4 pb-4 pt-0 border-t border-gray-100 dark:border-gray-700">
                           <div className="pl-11 space-y-3">
                             <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{safeString(verse.explanation)}</p>

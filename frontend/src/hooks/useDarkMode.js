@@ -1,14 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const STORAGE_KEY = 'bible-study-dark-mode';
 
 /**
  * Hook to manage dark mode with system preference detection.
  * Returns [isDark, toggleDark]
+ *
+ * When the user has never explicitly toggled, the theme follows the OS
+ * preference (including live changes). Once the user toggles, the choice
+ * is persisted and system changes are ignored.
  */
 export function useDarkMode() {
   const [isDark, setIsDark] = useState(() => {
-    // Check localStorage first
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored !== null) {
       return stored === 'true';
@@ -20,6 +23,7 @@ export function useDarkMode() {
     return false;
   });
 
+  // Apply dark class to <html> whenever isDark changes
   useEffect(() => {
     const root = document.documentElement;
     if (isDark) {
@@ -27,17 +31,15 @@ export function useDarkMode() {
     } else {
       root.classList.remove('dark');
     }
-    localStorage.setItem(STORAGE_KEY, String(isDark));
   }, [isDark]);
 
-  // Listen to system preference changes
+  // Listen to system preference changes — only follow them when the user
+  // hasn't set an explicit override (STORAGE_KEY absent from localStorage).
   useEffect(() => {
     const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
     if (!mq) return;
     const handler = (e) => {
-      // Only update if user hasn't explicitly set a preference
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === null) {
+      if (localStorage.getItem(STORAGE_KEY) === null) {
         setIsDark(e.matches);
       }
     };
@@ -45,7 +47,14 @@ export function useDarkMode() {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  const toggleDark = () => setIsDark((prev) => !prev);
+  // Explicit toggle — persists preference and stops following the OS
+  const toggleDark = useCallback(() => {
+    setIsDark((prev) => {
+      const next = !prev;
+      localStorage.setItem(STORAGE_KEY, String(next));
+      return next;
+    });
+  }, []);
 
   return [isDark, toggleDark];
 }

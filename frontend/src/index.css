@@ -10,17 +10,18 @@
     padding: 0;
   }
 
-  /* Hide everything except the full study guide modal */
-  .min-h-screen {
+  /* Hide the main app chrome but NOT the full-view modal */
+  .min-h-screen > *:not(.fixed) {
     display: none !important;
   }
 
-  /* Show the modal content when printing */
+  /* The modal overlay: make it flow normally on the page */
   .fixed.inset-0 {
     position: static !important;
     background: none !important;
     backdrop-filter: none !important;
     overflow: visible !important;
+    display: block !important;
   }
 
   .fixed.inset-0 > div {
