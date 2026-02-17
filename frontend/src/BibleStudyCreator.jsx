@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
-import { Book, Search, Download, Users, Cross, MessageSquare, Globe, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react';
+import { Book, Search, Download, Users, Cross, MessageSquare, Globe, CheckCircle, Clock, AlertCircle, Loader2, Moon, Sun, Maximize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useStudyHistory } from './hooks/useStudyHistory';
+import { useDarkMode } from './hooks/useDarkMode';
+import StudyHistoryPanel from './components/StudyHistoryPanel';
+import FullStudyGuideView from './components/FullStudyGuideView';
 
 // Use relative path for API which works for both development (with Vite proxy) and production (Vercel)
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
@@ -15,19 +19,22 @@ const BibleStudyCreator = () => {
   const [error, setError] = useState('');
   const [progressSteps, setProgressSteps] = useState([]);
   const [currentStep, setCurrentStep] = useState(null);
+  const [showFullView, setShowFullView] = useState(false);
+  const [isDark, toggleDark] = useDarkMode();
+  const { history, addEntry, removeEntry, clearHistory } = useStudyHistory();
 
   // Progress step component
   const ProgressStep = ({ step, isActive, isCompleted }) => {
     const getStepIcon = () => {
-      if (isCompleted) return <CheckCircle className="w-5 h-5 text-green-600" />;
-      if (isActive) return <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />;
-      return <Clock className="w-5 h-5 text-gray-400" />;
+      if (isCompleted) return <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />;
+      if (isActive) return <Loader2 className="w-5 h-5 text-blue-600 dark:text-blue-400 animate-spin" />;
+      return <Clock className="w-5 h-5 text-gray-400 dark:text-gray-500" />;
     };
 
     const getStepStyle = () => {
-      if (isCompleted) return 'border-green-200 bg-green-50';
-      if (isActive) return 'border-blue-200 bg-blue-50';
-      return 'border-gray-200 bg-gray-50';
+      if (isCompleted) return 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/30';
+      if (isActive) return 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/30';
+      return 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800';
     };
 
     return (
@@ -35,18 +42,18 @@ const BibleStudyCreator = () => {
         <div className="flex items-start gap-3">
           {getStepIcon()}
           <div className="flex-1">
-            <p className={`text-sm font-medium ${isCompleted ? 'text-green-800' : isActive ? 'text-blue-800' : 'text-gray-600'}`}>
+            <p className={`text-sm font-medium ${isCompleted ? 'text-green-800 dark:text-green-300' : isActive ? 'text-blue-800 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400'}`}>
               {step.message}
             </p>
             {step.details && (
-              <div className="mt-2 text-xs text-gray-600">
+              <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
                 {step.details.successful && (
                   <div>
                     <span className="font-medium">✓ Retrieved:</span> {step.details.successful.map(c => c.name).join(', ')}
                   </div>
                 )}
                 {step.details.failed && step.details.failed.length > 0 && (
-                  <div className="text-red-600">
+                  <div className="text-red-600 dark:text-red-400">
                     <span className="font-medium">✗ Failed:</span> {step.details.failed.join(', ')}
                   </div>
                 )}
@@ -57,7 +64,7 @@ const BibleStudyCreator = () => {
                 )}
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
               {step.timestamp.toLocaleTimeString()}
             </p>
           </div>
@@ -175,6 +182,9 @@ const BibleStudyCreator = () => {
             setCurrentStep('completed');
             eventSource.close();
             setIsGenerating(false);
+            // Save to history
+            const theologyName = theologicalStances.find(s => s.id === selectedTheology)?.name || selectedTheology;
+            addEntry(data.data, verseInput, theologyName, i18n.language);
           }
         } catch (parseError) {
           console.error('Failed to parse SSE data:', event.data);
@@ -201,6 +211,19 @@ const BibleStudyCreator = () => {
       setError(translateError(error.message) || t('errors.serverError'));
       setIsGenerating(false);
     }
+  };
+
+  const handleHistorySelect = (entry) => {
+    setStudyGuide(entry.studyGuide);
+    setVerseInput(entry.passage);
+    // Find matching theology ID
+    const theologyEntry = theologicalStances.find(s => s.name === entry.theology);
+    if (theologyEntry) {
+      setSelectedTheology(theologyEntry.id);
+    }
+    setError('');
+    setProgressSteps([]);
+    setCurrentStep(null);
   };
 
   const downloadStudyGuide = () => {
@@ -334,279 +357,339 @@ ${t('downloadHeaders.generatedBy')}`;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4 transition-colors duration-300">
       <div className="max-w-6xl mx-auto">
+        {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <Cross className="w-8 h-8 text-indigo-600" />
-            <h1 className="text-4xl font-bold text-gray-800">{t('title')}</h1>
-            <Book className="w-8 h-8 text-indigo-600" />
+            <Cross className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+            <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-100">{t('title')}</h1>
+            <Book className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
           </div>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
             {t('subtitle')}
           </p>
-          <div className="mt-4">
+          <div className="mt-4 flex items-center justify-center gap-3">
             <button
               onClick={() => i18n.changeLanguage(i18n.language === 'en' ? 'zh' : 'en')}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
-              <Globe className="w-4 h-4" />
-              <span className="font-medium">{i18n.language === 'en' ? '中文' : 'English'}</span>
+              <Globe className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              <span className="font-medium text-gray-700 dark:text-gray-300">{i18n.language === 'en' ? '中文' : 'English'}</span>
             </button>
-          </div>
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
-              <Users className="w-6 h-6 text-indigo-600" />
-              {t('studyConfig')}
-            </h2>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                {t('selectTheology')}
-              </label>
-              <div className="space-y-3">
-                {theologicalStances.map((stance) => (
-                  <div
-                    key={stance.id}
-                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      selectedTheology === stance.id
-                        ? 'border-indigo-500 bg-indigo-50'
-                        : 'border-gray-200 hover:border-indigo-300'
-                    }`}
-                    onClick={() => setSelectedTheology(stance.id)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        name="theology"
-                        value={stance.id}
-                        checked={selectedTheology === stance.id}
-                        onChange={() => setSelectedTheology(stance.id)}
-                        className="text-indigo-600"
-                      />
-                      <div>
-                        <h3 className="font-semibold text-gray-800">{stance.name}</h3>
-                        <p className="text-sm text-gray-600">{stance.description}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {t('commentariesLabel')} {stance.commentaries.slice(0, 3).join(', ')}
-                          {stance.commentaries.length > 3 && '...'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('biblePassage')}
-              </label>
-              <input
-                type="text"
-                value={verseInput}
-                onChange={(e) => setVerseInput(e.target.value)}
-                placeholder={t('passagePlaceholder')}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                {t('passageHint')}
-              </p>
-            </div>
-
             <button
-              onClick={generateStudyGuide}
-              disabled={isGenerating || !selectedTheology || !verseInput.trim()}
-              className="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              onClick={toggleDark}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              title={isDark ? 'Light mode' : 'Dark mode'}
             >
-              {isGenerating ? (
-                <>
-                  <Search className="w-5 h-5 opacity-50" />
-                  {i18n.language === 'zh' ? '正在生成...' : 'Generating...'}
-                </>
+              {isDark ? (
+                <Sun className="w-4 h-4 text-yellow-500" />
               ) : (
-                <>
-                  <Search className="w-5 h-5" />
-                  {t('generate')}
-                </>
+                <Moon className="w-4 h-4 text-gray-600" />
               )}
             </button>
-
-            {error && (
-              <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-                {error}
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-                <MessageSquare className="w-6 h-6 text-indigo-600" />
-                {t('studyGuide')}
-              </h2>
-              {studyGuide && (
-                <button
-                  onClick={downloadStudyGuide}
-                  className="bg-green-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
-                >
-                  <Download className="w-4 h-4" />
-                  {t('download')}
-                </button>
-              )}
-            </div>
-
-            {!studyGuide && !isGenerating && (
-              <div className="text-center py-12 text-gray-500">
-                <Book className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                <p>{t('configurePrompt')}</p>
-              </div>
-            )}
-
-            {isGenerating && (
-              <div className="space-y-4">
-                <div className="text-center py-6">
-                  <Loader2 className="w-8 h-8 mx-auto mb-4 text-indigo-600 animate-spin" />
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                    {i18n.language === 'zh' ? '正在生成学习指南...' : 'Generating Study Guide...'}
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    {i18n.language === 'zh' ? '请查看下方的详细进度信息' : 'See detailed progress information below'}
-                  </p>
-                </div>
-                
-                {progressSteps.length > 0 && (
-                  <div className="space-y-3 max-h-[calc(100vh-20rem)] overflow-y-auto">
-                    {progressSteps.map((step, index) => {
-                      const stepOrder = ['parsing', 'parsed', 'retrieving_commentaries', 'commentaries_retrieved', 'filtering_commentaries', 'commentaries_filtered', 'generating_guide', 'completed'];
-                      const isActive = currentStep === step.id;
-                      const currentIndex = stepOrder.indexOf(currentStep);
-                      const stepIndex = stepOrder.indexOf(step.id);
-                      const isCompleted = stepIndex < currentIndex || currentStep === 'completed';
-                      
-                      return (
-                        <ProgressStep 
-                          key={step.id} 
-                          step={step} 
-                          isActive={isActive}
-                          isCompleted={isCompleted}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {studyGuide && (
-              <div className="space-y-6 max-h-[calc(100vh-16rem)] overflow-y-auto">
-                <div className="text-center border-b pb-4">
-                  <h3 className="text-xl font-bold text-gray-800">{typeof studyGuide.title === 'string' ? studyGuide.title : 'Study Guide'}</h3>
-                  <p className="text-indigo-600 font-medium">{typeof studyGuide.passage === 'string' ? studyGuide.passage : ''}</p>
-                  <p className="text-sm text-gray-600">{typeof studyGuide.theology === 'string' ? studyGuide.theology : ''} {t('perspective')}</p>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold text-gray-800 mb-2">{t('overview')}</h4>
-                  <div className="text-sm text-gray-700 space-y-2">
-                    <p><strong>{t('introduction')}</strong> {studyGuide.overview && typeof studyGuide.overview.introduction === 'string' ? studyGuide.overview.introduction : 'No introduction available'}</p>
-                    <p><strong>{t('historicalContext')}</strong> {studyGuide.overview && typeof studyGuide.overview.historicalContext === 'string' ? studyGuide.overview.historicalContext : 'No historical context available'}</p>
-                    <p><strong>{t('literaryContext')}</strong> {studyGuide.overview && typeof studyGuide.overview.literaryContext === 'string' ? studyGuide.overview.literaryContext : 'No literary context available'}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold text-gray-800 mb-2">{t('exegesis')}</h4>
-                  <div className="space-y-3">
-                    {studyGuide.exegesis && Array.isArray(studyGuide.exegesis) ? studyGuide.exegesis.slice(0, 2).map((verse, index) => (
-                      <div key={index} className="bg-gray-50 p-3 rounded">
-                        <p className="font-medium text-indigo-600">{typeof verse.verse === 'string' ? verse.verse : `Verse ${index + 1}`}</p>
-                        <p className="text-sm text-gray-700 mt-1">{typeof verse.explanation === 'string' ? verse.explanation.substring(0, 200) + '...' : 'No explanation available'}</p>
-                      </div>
-                    )) : <p className="text-sm text-gray-500">No exegesis available</p>}
-                    {studyGuide.exegesis && Array.isArray(studyGuide.exegesis) && studyGuide.exegesis.length > 2 && (
-                      <p className="text-sm text-gray-500 italic">
-                        {t('moreVerses', { count: studyGuide.exegesis.length - 2 })}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold text-gray-800 mb-2">{t('discussionQuestions')}</h4>
-                  <div className="space-y-2">
-                    {studyGuide.discussionQuestions && Array.isArray(studyGuide.discussionQuestions) ? studyGuide.discussionQuestions.slice(0, 3).map((question, index) => (
-                      <p key={index} className="text-sm text-gray-700">
-                        {index + 1}. {typeof question === 'string' ? question : 'Discussion question'}
-                      </p>
-                    )) : <p className="text-sm text-gray-500">No discussion questions available</p>}
-                    {studyGuide.discussionQuestions && Array.isArray(studyGuide.discussionQuestions) && studyGuide.discussionQuestions.length > 3 && (
-                      <p className="text-sm text-gray-500 italic">
-                        {t('moreQuestions', { count: studyGuide.discussionQuestions.length - 3 })}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {studyGuide.commentariesUsed && Array.isArray(studyGuide.commentariesUsed) && studyGuide.commentariesUsed.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold text-gray-800 mb-2">{t('commentariesUsed')}</h4>
-                    <div className="space-y-1">
-                      {studyGuide.commentariesUsed.map((commentary, index) => (
-                        <div key={index} className="text-sm text-gray-700">
-                          <p>
-                            <span className="font-medium text-indigo-600">{typeof commentary.citation === 'string' ? commentary.citation : `[${index + 1}]`}</span> {typeof commentary.name === 'string' ? commentary.name : 'Commentary'} by {typeof commentary.author === 'string' ? commentary.author : 'Unknown'}
-                          </p>
-                          {commentary.url && typeof commentary.url === 'string' && (
-                            <p className="text-xs text-blue-600 ml-6">
-                              <a href={commentary.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                {commentary.url}
-                              </a>
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="text-center pt-4 border-t">
-                  <p className="text-sm text-gray-500">
-                    {t('downloadPrompt')}
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Left Column: Configuration */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200/50 dark:border-gray-700">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-5 flex items-center gap-2">
+                <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                {t('studyConfig')}
+              </h2>
+
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('selectTheology')}
+                </label>
+                <div className="space-y-2">
+                  {theologicalStances.map((stance) => (
+                    <div
+                      key={stance.id}
+                      className={`p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                        selectedTheology === stance.id
+                          ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 dark:border-indigo-500'
+                          : 'border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-600'
+                      }`}
+                      onClick={() => setSelectedTheology(stance.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name="theology"
+                          value={stance.id}
+                          checked={selectedTheology === stance.id}
+                          onChange={() => setSelectedTheology(stance.id)}
+                          className="text-indigo-600"
+                        />
+                        <div>
+                          <h3 className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{stance.name}</h3>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">{stance.description}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            {t('commentariesLabel')} {stance.commentaries.slice(0, 2).join(', ')}
+                            {stance.commentaries.length > 2 && '...'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('biblePassage')}
+                </label>
+                <input
+                  type="text"
+                  value={verseInput}
+                  onChange={(e) => setVerseInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') generateStudyGuide(); }}
+                  placeholder={t('passagePlaceholder')}
+                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {t('passageHint')}
+                </p>
+              </div>
+
+              <button
+                onClick={generateStudyGuide}
+                disabled={isGenerating || !selectedTheology || !verseInput.trim()}
+                className="w-full bg-indigo-600 dark:bg-indigo-700 text-white py-3 px-6 rounded-lg font-semibold hover:bg-indigo-700 dark:hover:bg-indigo-600 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    {i18n.language === 'zh' ? '正在生成...' : 'Generating...'}
+                  </>
+                ) : (
+                  <>
+                    <Search className="w-5 h-5" />
+                    {t('generate')}
+                  </>
+                )}
+              </button>
+
+              {error && (
+                <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-300 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">{error}</span>
+                </div>
+              )}
+            </div>
+
+            {/* History Panel */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200/50 dark:border-gray-700">
+              <StudyHistoryPanel
+                history={history}
+                onSelect={handleHistorySelect}
+                onRemove={removeEntry}
+                onClear={clearHistory}
+              />
+            </div>
+          </div>
+
+          {/* Right Column: Study Guide */}
+          <div className="lg:col-span-2">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200/50 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                  <MessageSquare className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                  {t('studyGuide')}
+                </h2>
+                {studyGuide && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowFullView(true)}
+                      className="bg-indigo-600 dark:bg-indigo-700 text-white py-2 px-4 rounded-lg font-medium hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors flex items-center gap-2 text-sm"
+                      title={i18n.language === 'zh' ? '全屏查看' : 'Full view'}
+                    >
+                      <Maximize2 className="w-4 h-4" />
+                      {i18n.language === 'zh' ? '全屏' : 'Full View'}
+                    </button>
+                    <button
+                      onClick={downloadStudyGuide}
+                      className="bg-green-600 dark:bg-green-700 text-white py-2 px-4 rounded-lg font-medium hover:bg-green-700 dark:hover:bg-green-600 transition-colors flex items-center gap-2 text-sm"
+                    >
+                      <Download className="w-4 h-4" />
+                      {t('download')}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {!studyGuide && !isGenerating && (
+                <div className="text-center py-16 text-gray-500 dark:text-gray-400">
+                  <Book className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                  <p>{t('configurePrompt')}</p>
+                </div>
+              )}
+
+              {isGenerating && (
+                <div className="space-y-4">
+                  <div className="text-center py-6">
+                    <Loader2 className="w-8 h-8 mx-auto mb-4 text-indigo-600 dark:text-indigo-400 animate-spin" />
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">
+                      {i18n.language === 'zh' ? '正在生成学习指南...' : 'Generating Study Guide...'}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {i18n.language === 'zh' ? '请查看下方的详细进度信息' : 'See detailed progress information below'}
+                    </p>
+                  </div>
+                  
+                  {progressSteps.length > 0 && (
+                    <div className="space-y-3 max-h-[calc(100vh-20rem)] overflow-y-auto">
+                      {progressSteps.map((step, index) => {
+                        const stepOrder = ['parsing', 'parsed', 'retrieving_commentaries', 'commentaries_retrieved', 'filtering_commentaries', 'commentaries_filtered', 'generating_guide', 'completed'];
+                        const isActive = currentStep === step.id;
+                        const currentIndex = stepOrder.indexOf(currentStep);
+                        const stepIndex = stepOrder.indexOf(step.id);
+                        const isCompleted = stepIndex < currentIndex || currentStep === 'completed';
+                        
+                        return (
+                          <ProgressStep 
+                            key={step.id} 
+                            step={step} 
+                            isActive={isActive}
+                            isCompleted={isCompleted}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {studyGuide && (
+                <div className="space-y-6 max-h-[calc(100vh-16rem)] overflow-y-auto">
+                  <div className="text-center border-b dark:border-gray-700 pb-4">
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">{typeof studyGuide.title === 'string' ? studyGuide.title : 'Study Guide'}</h3>
+                    <p className="text-indigo-600 dark:text-indigo-400 font-medium">{typeof studyGuide.passage === 'string' ? studyGuide.passage : ''}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{typeof studyGuide.theology === 'string' ? studyGuide.theology : ''} {t('perspective')}</p>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">{t('overview')}</h4>
+                    <div className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
+                      <p><strong>{t('introduction')}</strong> {studyGuide.overview && typeof studyGuide.overview.introduction === 'string' ? studyGuide.overview.introduction : 'No introduction available'}</p>
+                      <p><strong>{t('historicalContext')}</strong> {studyGuide.overview && typeof studyGuide.overview.historicalContext === 'string' ? studyGuide.overview.historicalContext : 'No historical context available'}</p>
+                      <p><strong>{t('literaryContext')}</strong> {studyGuide.overview && typeof studyGuide.overview.literaryContext === 'string' ? studyGuide.overview.literaryContext : 'No literary context available'}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">{t('exegesis')}</h4>
+                    <div className="space-y-3">
+                      {studyGuide.exegesis && Array.isArray(studyGuide.exegesis) ? studyGuide.exegesis.slice(0, 4).map((verse, index) => (
+                        <div key={index} className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded border border-gray-100 dark:border-gray-600">
+                          <p className="font-medium text-indigo-600 dark:text-indigo-400">{typeof verse.verse === 'string' ? verse.verse : `Verse ${index + 1}`}</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{typeof verse.explanation === 'string' ? verse.explanation.substring(0, 300) + (verse.explanation.length > 300 ? '...' : '') : 'No explanation available'}</p>
+                        </div>
+                      )) : <p className="text-sm text-gray-500 dark:text-gray-400">No exegesis available</p>}
+                      {studyGuide.exegesis && Array.isArray(studyGuide.exegesis) && studyGuide.exegesis.length > 4 && (
+                        <button
+                          onClick={() => setShowFullView(true)}
+                          className="w-full text-center py-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors text-sm font-medium"
+                        >
+                          {t('moreVerses', { count: studyGuide.exegesis.length - 4 })} →{' '}
+                          {i18n.language === 'zh' ? '点击查看全部' : 'Click to view all'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">{t('discussionQuestions')}</h4>
+                    <div className="space-y-2">
+                      {studyGuide.discussionQuestions && Array.isArray(studyGuide.discussionQuestions) ? studyGuide.discussionQuestions.slice(0, 3).map((question, index) => (
+                        <p key={index} className="text-sm text-gray-700 dark:text-gray-300">
+                          {index + 1}. {typeof question === 'string' ? question : 'Discussion question'}
+                        </p>
+                      )) : <p className="text-sm text-gray-500 dark:text-gray-400">No discussion questions available</p>}
+                      {studyGuide.discussionQuestions && Array.isArray(studyGuide.discussionQuestions) && studyGuide.discussionQuestions.length > 3 && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                          {t('moreQuestions', { count: studyGuide.discussionQuestions.length - 3 })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {studyGuide.commentariesUsed && Array.isArray(studyGuide.commentariesUsed) && studyGuide.commentariesUsed.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">{t('commentariesUsed')}</h4>
+                      <div className="space-y-1">
+                        {studyGuide.commentariesUsed.map((commentary, index) => (
+                          <div key={index} className="text-sm text-gray-700 dark:text-gray-300">
+                            <p>
+                              <span className="font-medium text-indigo-600 dark:text-indigo-400">{typeof commentary.citation === 'string' ? commentary.citation : `[${index + 1}]`}</span> {typeof commentary.name === 'string' ? commentary.name : 'Commentary'} by {typeof commentary.author === 'string' ? commentary.author : 'Unknown'}
+                            </p>
+                            {commentary.url && typeof commentary.url === 'string' && (
+                              <p className="text-xs text-blue-600 dark:text-blue-400 ml-6">
+                                <a href={commentary.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                  {commentary.url}
+                                </a>
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="text-center pt-4 border-t dark:border-gray-700">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {t('downloadPrompt')}
+                    </p>
+                    <button
+                      onClick={() => setShowFullView(true)}
+                      className="mt-2 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 text-sm font-medium inline-flex items-center gap-1"
+                    >
+                      <Maximize2 className="w-4 h-4" />
+                      {i18n.language === 'zh' ? '查看完整学习指南（含全部经文解析）' : 'View full study guide with all verse explanations'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Feature Cards */}
         <div className="mt-12 grid md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow-lg text-center">
-            <Cross className="w-12 h-12 text-indigo-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">{t('features.theological')}</h3>
-            <p className="text-gray-600 text-sm">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg text-center border border-gray-200/50 dark:border-gray-700">
+            <Cross className="w-12 h-12 text-indigo-600 dark:text-indigo-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">{t('features.theological')}</h3>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
               {t('features.theologicalDesc')}
             </p>
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-lg text-center">
-            <Book className="w-12 h-12 text-indigo-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">{t('features.comprehensive')}</h3>
-            <p className="text-gray-600 text-sm">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg text-center border border-gray-200/50 dark:border-gray-700">
+            <Book className="w-12 h-12 text-indigo-600 dark:text-indigo-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">{t('features.comprehensive')}</h3>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
               {t('features.comprehensiveDesc')}
             </p>
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-lg text-center">
-            <Users className="w-12 h-12 text-indigo-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">{t('features.groupReady')}</h3>
-            <p className="text-gray-600 text-sm">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg text-center border border-gray-200/50 dark:border-gray-700">
+            <Users className="w-12 h-12 text-indigo-600 dark:text-indigo-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">{t('features.groupReady')}</h3>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
               {t('features.groupReadyDesc')}
             </p>
           </div>
         </div>
       </div>
+
+      {/* Full Study Guide Modal */}
+      {showFullView && studyGuide && (
+        <FullStudyGuideView
+          studyGuide={studyGuide}
+          onClose={() => setShowFullView(false)}
+        />
+      )}
     </div>
   );
 };

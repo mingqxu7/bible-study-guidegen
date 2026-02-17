@@ -1,3 +1,88 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Print styles for clean study guide output */
+@media print {
+  body {
+    background: white !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Hide everything except the full study guide modal */
+  .min-h-screen {
+    display: none !important;
+  }
+
+  /* Show the modal content when printing */
+  .fixed.inset-0 {
+    position: static !important;
+    background: none !important;
+    backdrop-filter: none !important;
+    overflow: visible !important;
+  }
+
+  .fixed.inset-0 > div {
+    max-width: 100% !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Remove sticky header behavior */
+  .sticky {
+    position: static !important;
+  }
+
+  /* Ensure text is black on white */
+  * {
+    color: #1a1a1a !important;
+    background: transparent !important;
+    border-color: #e5e5e5 !important;
+  }
+
+  /* Proper page breaks */
+  section {
+    page-break-inside: avoid;
+  }
+
+  h2 {
+    page-break-after: avoid;
+  }
+
+  /* Remove all transitions and animations */
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  /* Override dark mode for print */
+  .dark * {
+    color: #1a1a1a !important;
+    background: transparent !important;
+  }
+}
+
+/* Smooth transitions for dark mode */
+html {
+  transition: background-color 0.3s ease;
+}
+
+/* Custom scrollbar for dark mode */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
