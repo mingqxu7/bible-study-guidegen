@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  bible-study:
+    build: .
+    ports:
+      - "${PORT:-8080}:80"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-haiku-4-5}
+      - MAX_OUTPUT_TOKENS=${MAX_OUTPUT_TOKENS:-24000}
+      - MAX_COMMENTARIES=${MAX_COMMENTARIES:-3}
+      - MAX_VERSES=${MAX_VERSES:-15}
+      - PORT=3001
+    restart: unless-stopped

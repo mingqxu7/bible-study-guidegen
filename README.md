@@ -303,3 +303,42 @@ This project is intended for educational and ministry purposes. Please ensure yo
 ## Support
 
 For questions or issues, please refer to the documentation or create an issue in the project repository.
+## Docker Deployment
+
+The fastest way to run the app in production.
+
+### Quick Start
+
+```bash
+# 1. Copy and edit the env file
+cp .env.example .env
+# Edit .env and set your ANTHROPIC_API_KEY
+
+# 2. Run with Docker Compose
+docker compose up -d
+
+# App is now at http://localhost:8080
+```
+
+### Build and Run Manually
+
+```bash
+docker build -t bible-study-guide .
+docker run -d -p 8080:80 \
+  -e ANTHROPIC_API_KEY=sk-ant-... \
+  --name bible-study \
+  bible-study-guide
+```
+
+### Configuration
+
+All configuration is via environment variables (see `.env.example`):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ANTHROPIC_API_KEY` | *(required)* | Your Anthropic API key |
+| `ANTHROPIC_MODEL` | `claude-haiku-4-5` | Claude model to use |
+| `PORT` | `8080` | Host port mapping |
+| `MAX_OUTPUT_TOKENS` | `24000` | Max tokens in Claude response |
+| `MAX_COMMENTARIES` | `3` | Number of commentaries to fetch |
+| `MAX_VERSES` | `15` | Max verses per request |
