@@ -9,7 +9,7 @@ Requires Node >= 22.13. No npm dependencies.
 
 ```bash
 cd corpus
-export CORPUS_CONTACT=you@example.com        # goes in the User-Agent
+export CORPUS_CONTACT=you@example.com        # optional; added to the User-Agent so servers can reach you
 npm run ingest -- helloao                    # Calvin, Henry, Gill, JFB, Clarke
 npm run ingest -- helloao --commentary john-gill --book ROM   # one book
 npm run ingest -- hcf                        # Lapide, Wesley, Luther (excerpts; ~160 MB download)

@@ -22,13 +22,12 @@ const { values, positionals } = parseArgs({
 const [command, source] = positionals;
 
 function makeFetcher(minIntervalMs) {
+  // CORPUS_CONTACT is optional: when set it is appended to the User-Agent so servers can reach you.
   const contact = process.env.CORPUS_CONTACT;
-  if (!contact) {
-    console.error('Set CORPUS_CONTACT to an email or URL so servers can reach you (it goes in the User-Agent).');
-    process.exit(2);
-  }
   return createFetcher({
-    userAgent: `bible-commentary-corpus/0.1 (research; contact: ${contact})`,
+    userAgent: contact
+      ? `bible-commentary-corpus/0.1 (research; contact: ${contact})`
+      : 'bible-commentary-corpus/0.1 (research)',
     minIntervalMs,
   });
 }
