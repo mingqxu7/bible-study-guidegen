@@ -4,9 +4,10 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { openDb } from '../lib/db.js';
-import { verseSlot as s } from '../lib/kjv.js';
+import { slotCount, verseSlot as s } from '../lib/kjv.js';
 import { ingestSword } from '../sources/sword.js';
-import { buildModuleZip } from './helpers/sword-fixtures.js';
+import { buildModuleZip, buildTestament } from './helpers/sword-fixtures.js';
+import { buildZip } from './helpers/zip-builder.js';
 
 const tmp = () => fs.mkdtemp(path.join(os.tmpdir(), 'corpus-sword-'));
 const rows = (db) => db.prepare(
@@ -122,4 +123,30 @@ test('unknown module id is rejected without fetching', async () => {
   const fetcher = fakeFetcher(Buffer.alloc(0));
   await assert.rejects(ingestSword(openDb(), fetcher, { moduleId: 'Nope', cacheDir: await tmp() }), /Unknown SWORD module/);
   assert.equal(fetcher.calls.length, 0);
+});
+
+test('an all-stub parse refuses to wipe the rows of an earlier ingest', async () => {
+  const db = openDb();
+  const cacheDir = await tmp();
+  const good = buildModuleZip({ id: 'Barnes', nt: [{ slots: [s('mat', 1, 3)], text: 'Real note' }] });
+  await ingestSword(db, fakeFetcher(good), { moduleId: 'Barnes', cacheDir });
+  await fs.rm(path.join(cacheDir, 'Barnes.zip'));
+  const stub = buildModuleZip({ id: 'Barnes', nt: [{ slots: [s('mat', 1, 3)], text: 'No specific Barnes text on this verse' }] });
+  await assert.rejects(ingestSword(db, fakeFetcher(stub), { moduleId: 'Barnes', cacheDir }), /parsed 0 usable entries/);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM passages WHERE commentary_id = ?').get('barnes').n, 1);
+});
+
+test('a verse index of the wrong size is rejected', async () => {
+  const { zs, zv, zz } = buildTestament(slotCount('ot') + 5, [{ slots: [s('gen', 1, 1)], text: 'x' }]);
+  const conf = '[Wesley]\nDataPath=./modules/comments/zcom/wesley/\nModDrv=zCom\nSourceType=ThML\nBlockType=BOOK\nCompressType=ZIP\nDistributionLicense=Public Domain\n';
+  const zip = buildZip([
+    { name: 'mods.d/wesley.conf', data: Buffer.from(conf) },
+    { name: 'modules/comments/zcom/wesley/ot.bzs', data: zs },
+    { name: 'modules/comments/zcom/wesley/ot.bzv', data: zv },
+    { name: 'modules/comments/zcom/wesley/ot.bzz', data: zz },
+  ]);
+  await assert.rejects(
+    ingestSword(openDb(), fakeFetcher(zip), { moduleId: 'Wesley', cacheDir: await tmp() }),
+    /verse index has .* records, expected 24115/,
+  );
 });

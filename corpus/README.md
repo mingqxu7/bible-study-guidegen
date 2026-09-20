@@ -21,11 +21,12 @@ Output: `corpus.sqlite` (tables `passages`, `sources`). Raw downloads are cached
 and reruns skip anything already downloaded. Both files are gitignored.
 If a run dies (network error), just rerun it — completed chapters are cached.
 
-Not included yet: Lapide, Gill, Benson, Whedon, Bengel, Kretzmann, Haydock, Darby's Synopsis
-(no bulk source found), and the SWORD versions of Clarke/Calvin/MHC/JFB (HelloAO already supplies
-those; SWORD could fill their gaps). The copyrighted commentaries (Scofield, Ironside, McGee,
+Not included yet: Lapide, Benson, Whedon, Bengel, Kretzmann, Haydock, Darby's Synopsis
+(no bulk source found), and the SWORD versions of Clarke/Calvin/MHC/JFB (SWORD could fill gaps for Clarke and Calvin;
+MHC and JFB use the `zCom4` driver, which this reader refuses, so they would need a zCom4 reader). The copyrighted commentaries (Scofield, Ironside, McGee,
 Constable, Orchard) are out of scope.
 
 SWORD notes: modules are read with a built-in reader (no SWORD library). Book and chapter intro
 headings are not ingested; Barnes' preface/introduction sit in the Matt 1:1/1:2 verse slots and
 are stored as ordinary verse rows. Barnes "no specific text" placeholders are dropped.
+Wesley's SWORD module has no text for 1 Kings and Philemon, so `report` will show those books missing.

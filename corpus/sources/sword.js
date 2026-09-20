@@ -4,7 +4,7 @@ import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { replacePassages, upsertSource } from '../lib/db.js';
-import { TESTAMENT_BOOKS } from '../lib/kjv.js';
+import { slotCount, TESTAMENT_BOOKS } from '../lib/kjv.js';
 import { SWORD_MODULES } from '../lib/licenses.js';
 import { readZip } from '../lib/zip.js';
 import { assertSupported, bookEntries, cleanMarkup, isStub, openTestament, parseConf } from './sword-reader.js';
@@ -52,6 +52,9 @@ export async function ingestSword(db, fetcher, opts) {
     if (!zs || !zv || !zz) continue; // e.g. Barnes has no Old Testament
     testaments.push(testament);
     const t = openTestament({ zs, zv, zz }, `${moduleId} ${testament}`);
+    if (t.recordCount !== slotCount(testament)) {
+      throw new Error(`${moduleId} ${testament}: verse index has ${t.recordCount} records, expected ${slotCount(testament)} for the KJV layout`);
+    }
     for (const code of TESTAMENT_BOOKS[testament]) {
       for (const e of bookEntries(t, code)) {
         const text = cleanMarkup(e.text);
@@ -66,6 +69,7 @@ export async function ingestSword(db, fetcher, opts) {
     log(`${meta.id} ${testament}: ${out.length} rows so far`);
   }
   if (!testaments.length) throw new Error(`${moduleId}: no ot/nt data files found under ${dataPath}`);
+  if (!out.length) throw new Error(`${moduleId}: parsed 0 usable entries; not replacing existing rows`);
 
   upsertSource(db, {
     commentaryId: meta.id, name: meta.name, author: meta.author, source: 'sword', sourceUrl: url,
