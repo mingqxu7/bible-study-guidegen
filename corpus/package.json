@@ -1,0 +1,12 @@
+{
+  "name": "bible-commentary-corpus",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.js\"",
+    "ingest": "node --disable-warning=ExperimentalWarning cli.js ingest",
+    "report": "node --disable-warning=ExperimentalWarning cli.js report"
+  }
+}
