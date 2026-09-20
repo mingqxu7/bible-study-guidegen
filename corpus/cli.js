@@ -4,9 +4,10 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { openDb } from './lib/db.js';
 import { BlockedError, createFetcher } from './lib/fetcher.js';
-import { HELLOAO_COMMENTARIES } from './lib/licenses.js';
+import { HELLOAO_COMMENTARIES, SWORD_MODULES } from './lib/licenses.js';
 import { formatReport } from './lib/report.js';
 import { ingestHelloao } from './sources/helloao.js';
+import { ingestSword } from './sources/sword.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const { values, positionals } = parseArgs({
@@ -20,7 +21,7 @@ const { values, positionals } = parseArgs({
 });
 const [command, source] = positionals;
 
-function makeFetcher(minIntervalMs) {
+function makeFetcher(minIntervalMs, hostIntervals = {}) {
   // CORPUS_CONTACT is optional: when set it is appended to the User-Agent so servers can reach you.
   const contact = process.env.CORPUS_CONTACT;
   return createFetcher({
@@ -28,6 +29,7 @@ function makeFetcher(minIntervalMs) {
       ? `bible-commentary-corpus/0.1 (research; contact: ${contact})`
       : 'bible-commentary-corpus/0.1 (research)',
     minIntervalMs,
+    hostIntervals,
   });
 }
 
@@ -49,7 +51,20 @@ async function main() {
     }
     return;
   }
-  console.error('Usage: cli.js ingest helloao [--commentary <helloao-id>] [--book ROM ...] | report  [--db path]');
+  if (command === 'ingest' && source === 'sword') {
+    const db = openDb(values.db);
+    // CrossWire's robots.txt asks for Crawl-delay: 30. We only ever request the module ZIPs.
+    const fetcher = makeFetcher(0, { 'www.crosswire.org': 30000 });
+    const ids = values.commentary ? [values.commentary] : Object.keys(SWORD_MODULES);
+    for (const moduleId of ids) {
+      const stats = await ingestSword(db, fetcher, {
+        moduleId, cacheDir: path.join(here, 'cache', 'sword'), log: (m) => console.error(m),
+      });
+      console.log(moduleId, JSON.stringify(stats));
+    }
+    return;
+  }
+  console.error('Usage: cli.js ingest helloao [--commentary <helloao-id>] [--book ROM ...] | ingest sword [--commentary Wesley|Barnes|Luther] | report  [--db path]');
   process.exit(1);
 }
 
