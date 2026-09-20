@@ -47,6 +47,11 @@ async function main() {
   }
   if (command === 'translate') {
     const [, commentary, book, ref] = positionals;
+    if (!commentary || !book || !ref) {
+      throw new UsageError('Usage: translate <commentary> <book> <chapter>[:<verse>] [--model id] [--force] [--dry-run] [--max-chars n]');
+    }
+    const maxChars = Number(values['max-chars']);
+    if (!Number.isInteger(maxChars) || maxChars < 1) throw new UsageError('--max-chars must be a positive integer');
     const model = values.model ?? DEFAULT_MODEL;
     const dryRun = values['dry-run'];
     let client = null;
@@ -60,12 +65,13 @@ async function main() {
     }
     process.exitCode = await runTranslate({
       db: openDb(values.db), client, model, commentary, book, ref,
-      force: values.force, dryRun, maxChars: Number(values['max-chars']),
+      force: values.force, dryRun, maxChars,
     });
     return;
   }
   if (command === 'show') {
     const [, commentary, book, ref] = positionals;
+    if (!commentary || !book || !ref) throw new UsageError('Usage: show <commentary> <book> <chapter>[:<verse>] [--model id]');
     runShow({ db: openDb(values.db), model: values.model ?? DEFAULT_MODEL, commentary, book, ref });
     return;
   }

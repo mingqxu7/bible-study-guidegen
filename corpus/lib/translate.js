@@ -118,7 +118,8 @@ export function selectPassages(db, commentaryId, book, chapter, verse = null) {
 
 // ---- translating one passage ----
 
-const MAX_TOKENS = 8192;
+// Sonnet 5 thinking tokens share this budget; a failed passage discards already-paid chunks
+const MAX_TOKENS = 16000;
 
 export async function translatePassage(db, client, passage, opts = {}) {
   const { commentaryName = passage.commentaryId, force = false, now = () => new Date().toISOString() } = opts;
@@ -155,6 +156,7 @@ export async function translatePassage(db, client, passage, opts = {}) {
   }
 
   const text = stitch(chunks, translated);
+  if (cjkCount(text) === 0) return { status: 'failed', error: 'reply contains no Chinese characters' };
   const problem = checkRatio(passage.text, text);
   if (problem) return { status: 'failed', error: problem };
 

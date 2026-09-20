@@ -76,7 +76,16 @@ test('translates, stores with token counts, and builds the request from the prom
   assert.match(client.calls[0].user, /Passage: Romans 8:28/);
   assert.match(client.calls[0].user, /Commentary: Gill's Exposition/);
   assert.ok(client.calls[0].user.endsWith('Short English text.'));
-  assert.equal(client.calls[0].maxTokens, 8192);
+  assert.equal(client.calls[0].maxTokens, 16000);
+});
+
+test('a reply with no Chinese characters fails and stores nothing', async () => {
+  const db = openDb();
+  const client = fakeClient([{ text: 'This is still English.' }]);
+  const result = await translatePassage(db, client, P({ text: 'Short English text.' }), { now: NOW });
+  assert.equal(result.status, 'failed');
+  assert.match(result.error, /no Chinese characters/);
+  assert.equal(lookup(db), null);
 });
 
 test('a cached translation makes no API call; force translates again', async () => {

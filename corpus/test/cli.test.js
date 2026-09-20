@@ -27,6 +27,24 @@ function run(args, env = {}) {
   });
 }
 
+test('translate with no positionals exits 1 with usage', () => {
+  const r = run(['translate', '--db', seededFile()]);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /Usage: translate/);
+});
+
+test('translate with a bad --max-chars exits 1', () => {
+  const r = run(['translate', 'gill', 'rom', '8', '--max-chars', 'abc', '--db', seededFile()]);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /--max-chars must be a positive integer/);
+});
+
+test('show with no positionals exits 1 with usage', () => {
+  const r = run(['show', '--db', seededFile()]);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /Usage: show/);
+});
+
 test('translate without ANTHROPIC_API_KEY exits 2 with a clear message', () => {
   const r = run(['translate', 'gill', 'rom', '8:28', '--db', seededFile()]);
   assert.equal(r.status, 2);

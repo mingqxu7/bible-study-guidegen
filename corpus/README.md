@@ -30,13 +30,14 @@ Translate a passage's commentary into Simplified Chinese with the Anthropic API 
     npm run translate -- gill rom 8:28 --dry-run       # preview: counts and rough token estimate, no key needed
     npm run translate -- gill rom 8:28                 # translate and store (default model claude-sonnet-5)
     npm run show -- gill rom 8:28                      # English + stored Chinese, labelled machine translation
-    npm run translate -- gill rom 8                    # a whole chapter
+    npm run translate -- gill rom 8 --dry-run                # a whole chapter: preview first; a big chapter needs --max-chars, e.g. Gill Romans 8 is ~144,000 characters
     node cli.js translations report                    # translated counts and token totals
 
 A repeat request reads the stored translation and costs nothing. `--force` translates again;
 `--max-chars` (default 30000) refuses a request that would translate more than that many characters.
 Translations always render "God" as 上帝 (和合本上帝版 terms) and are labelled with the model and prompt
 version. Nothing is sent to the API unless you run `translate` without `--dry-run`.
+A long passage is translated in chunks; if a later chunk fails, nothing is stored for the passage and the chunks already paid for are lost, so translate big chapters in smaller pieces. On your first real run compare the reported output tokens with the dry-run estimate before translating anything large.
 
 Not included yet: Lapide, Benson, Whedon, Bengel, Kretzmann, Haydock, Darby's Synopsis
 (no bulk source found), and the SWORD versions of Clarke/Calvin/MHC/JFB (SWORD could fill gaps for Clarke and Calvin;

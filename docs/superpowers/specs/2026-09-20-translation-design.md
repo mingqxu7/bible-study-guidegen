@@ -104,7 +104,7 @@ Each chunk records the separator that originally followed it (`"\n\n"` between p
 inside a paragraph); stitching rejoins chunk translations with those separators, so a
 sentence-level split never invents a paragraph break.
 
-**Per-chunk call**: `maxTokens = 8192`. If `stopReason === 'max_tokens'` or the reply is empty the
+**Per-chunk call**: `maxTokens = 16000`. If `stopReason === 'max_tokens'` or the reply is empty the
 passage fails (a truncated translation is never stored).
 
 **Sanity check** (per whole passage, skipped when the English is under 200 characters): the count of
