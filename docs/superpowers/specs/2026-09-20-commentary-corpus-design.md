@@ -109,6 +109,14 @@ copying is skipped and reported.
 5. HCF ingestion uses an author allowlist (Lapide, Wesley, Luther) because HCF's LICENSE
    says the database also contains copyrighted fair-use excerpts.
 
+6. **HCF source dropped (2026-09-20, after the first live run).** The HistoricalChristianFaith
+   release has no Lapide commentary (its repo folder is only a metadata stub) and only a few
+   topical Wesley/Luther excerpts on Matthew 1:25, 13:55, Mark 6:3 and 2 Maccabees, so it cannot
+   supply those commentaries. The HCF adapter was removed. The Source and Sources (Phase 1)
+   sections above describe the original plan, not the current code.
+7. **HelloAO `numberOfVerses` is unreliable for section-level commentaries** (Henry reports the
+   entry count). The chapter's last verse comes from `backend/services/bibleBounds.js` instead.
+
 ## Still open
 
 - Phase 2 probe: Benson, Whedon, Darby, Kretzmann, Bengel, Haydock.

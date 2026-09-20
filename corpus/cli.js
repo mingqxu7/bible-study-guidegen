@@ -6,7 +6,6 @@ import { openDb } from './lib/db.js';
 import { BlockedError, createFetcher } from './lib/fetcher.js';
 import { HELLOAO_COMMENTARIES } from './lib/licenses.js';
 import { formatReport } from './lib/report.js';
-import { downloadRelease, ingestHcf } from './sources/hcf.js';
 import { ingestHelloao } from './sources/helloao.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -50,14 +49,7 @@ async function main() {
     }
     return;
   }
-  if (command === 'ingest' && source === 'hcf') {
-    const db = openDb(values.db);
-    const dest = path.join(here, 'cache', 'hcf', 'commentaries.sqlite');
-    await downloadRelease(makeFetcher(1000), dest);
-    console.log('hcf', JSON.stringify(await ingestHcf(db, dest)));
-    return;
-  }
-  console.error('Usage: cli.js ingest helloao [--commentary <helloao-id>] [--book ROM ...] | ingest hcf | report  [--db path]');
+  console.error('Usage: cli.js ingest helloao [--commentary <helloao-id>] [--book ROM ...] | report  [--db path]');
   process.exit(1);
 }
 

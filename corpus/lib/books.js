@@ -1,4 +1,4 @@
-// [repo code (matches backend bibleBounds), USFM id used by HelloAO, English name used by HCF]
+// [repo code (matches backend bibleBounds), USFM id used by HelloAO, English name]
 const ROWS = [
   ['gen', 'GEN', 'Genesis'], ['exo', 'EXO', 'Exodus'], ['lev', 'LEV', 'Leviticus'],
   ['num', 'NUM', 'Numbers'], ['deu', 'DEU', 'Deuteronomy'], ['jos', 'JOS', 'Joshua'],
@@ -27,7 +27,3 @@ const ROWS = [
 
 export const BOOKS = ROWS.map(([code, usfm, name]) => ({ code, usfm, name }));
 export const USFM_TO_CODE = Object.fromEntries(BOOKS.map((b) => [b.usfm, b.code]));
-// HCF stores book as the English name, lowercased, spaces removed ("1 Corinthians" -> "1corinthians").
-export const HCF_NAME_TO_CODE = Object.fromEntries(
-  BOOKS.map((b) => [b.name.toLowerCase().replace(/ /g, ''), b.code]),
-);
