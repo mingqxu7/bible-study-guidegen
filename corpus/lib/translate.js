@@ -1,3 +1,5 @@
+import { AuthError } from './anthropic.js';
+import { getTranslation, saveTranslation } from './db.js';
 import { BOOKS } from './books.js';
 
 export const PROMPT_VERSION = 'zh-hans-v1';
@@ -92,4 +94,70 @@ export function formatRef({ book, chapter, verseStart, endChapter, verseEnd }) {
   if (endChapter !== chapter) return `${start}-${endChapter}:${verseEnd}`;
   if (verseEnd !== verseStart) return `${start}-${verseEnd}`;
   return start;
+}
+
+// ---- selecting passages ----
+
+// chapter only: passages that start in that chapter.
+// chapter + verse: passages whose range covers that verse (ranges may cross chapters).
+export function selectPassages(db, commentaryId, book, chapter, verse = null) {
+  let sql = `SELECT commentary_id AS commentaryId, book, chapter, verse_start AS verseStart,
+      end_chapter AS endChapter, verse_end AS verseEnd, seq, text
+    FROM passages WHERE commentary_id = ? AND book = ? AND `;
+  const args = [commentaryId, book];
+  if (verse === null) {
+    sql += 'chapter = ?';
+    args.push(chapter);
+  } else {
+    sql += '(chapter < ? OR (chapter = ? AND verse_start <= ?)) AND (end_chapter > ? OR (end_chapter = ? AND verse_end >= ?))';
+    args.push(chapter, chapter, verse, chapter, chapter, verse);
+  }
+  sql += ' ORDER BY chapter, verse_start, seq';
+  return db.prepare(sql).all(...args).map((r) => ({ ...r }));
+}
+
+// ---- translating one passage ----
+
+const MAX_TOKENS = 8192;
+
+export async function translatePassage(db, client, passage, opts = {}) {
+  const { commentaryName = passage.commentaryId, force = false, now = () => new Date().toISOString() } = opts;
+  const key = {
+    commentaryId: passage.commentaryId, book: passage.book, chapter: passage.chapter, verseStart: passage.verseStart,
+    endChapter: passage.endChapter, verseEnd: passage.verseEnd, seq: passage.seq,
+  };
+  const where = { lang: LANG, model: client.model, promptVersion: PROMPT_VERSION };
+  if (!force && getTranslation(db, key, where)) return { status: 'cached' };
+
+  const chunks = chunkText(passage.text);
+  if (!chunks.length) return { status: 'failed', error: 'passage text is empty' };
+  const ref = formatRef(passage);
+  const translated = [];
+  let inputTokens = 0;
+  let outputTokens = 0;
+  try {
+    for (let i = 0; i < chunks.length; i++) {
+      const res = await client.complete({
+        system: SYSTEM_PROMPT,
+        user: buildUserMessage({ commentaryName, ref, part: i + 1, parts: chunks.length, text: chunks[i].text }),
+        maxTokens: MAX_TOKENS,
+      });
+      if (res.stopReason === 'max_tokens') throw new Error(`reply hit max_tokens on part ${i + 1}/${chunks.length}`);
+      const text = res.text.trim();
+      if (!text) throw new Error(`empty reply on part ${i + 1}/${chunks.length}`);
+      translated.push(text);
+      inputTokens += res.inputTokens;
+      outputTokens += res.outputTokens;
+    }
+  } catch (err) {
+    if (err instanceof AuthError) throw err;
+    return { status: 'failed', error: err.message };
+  }
+
+  const text = stitch(chunks, translated);
+  const problem = checkRatio(passage.text, text);
+  if (problem) return { status: 'failed', error: problem };
+
+  saveTranslation(db, { ...key, ...where, text, inputTokens, outputTokens, createdAt: now() });
+  return { status: 'translated', inputTokens, outputTokens };
 }
