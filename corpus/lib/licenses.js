@@ -9,3 +9,10 @@ export const HELLOAO_COMMENTARIES = {
   'jamieson-fausset-brown': { id: 'jfb', name: 'Jamieson-Fausset-Brown Commentary', author: 'Jamieson, Fausset, Brown', sectionLevel: false },
   'adam-clarke': { id: 'clarke', name: "Clarke's Commentary", author: 'Adam Clarke', sectionLevel: false },
 };
+
+// Key = CrossWire module id (the rawzip package name). `id` is our stable commentary_id.
+export const SWORD_MODULES = {
+  Wesley: { id: 'wesley', name: "Wesley's Notes on the Bible", author: 'John Wesley', notes: null },
+  Barnes: { id: 'barnes', name: "Barnes' Notes on the Bible", author: 'Albert Barnes', notes: 'New Testament only' },
+  Luther: { id: 'luther', name: "Luther's Commentary (selected passages)", author: 'Martin Luther', notes: 'selected passages only' },
+};
