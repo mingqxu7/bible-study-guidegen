@@ -19,6 +19,8 @@ npm test
 
 Output: `corpus.sqlite` (tables `passages`, `sources`). Raw downloads are cached under `cache/`
 and reruns skip anything already downloaded. Both files are gitignored.
+If a run dies (network error), just rerun it — completed chapters are cached.
+To force a fresh HCF download, delete `cache/hcf/commentaries.sqlite`.
 
 Not included yet: SWORD modules (Barnes, etc.), Benson, Whedon, Darby, Kretzmann, Bengel,
 Haydock. The copyrighted commentaries (Scofield, Ironside, McGee, Constable, Orchard) are out of scope.

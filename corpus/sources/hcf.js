@@ -29,14 +29,20 @@ export async function ingestHcf(db, hcfPath, { now = () => new Date().toISOStrin
        WHERE father_name IN (${authors.map(() => '?').join(',')}) ORDER BY rowid`,
     ).all(...authors);
 
+    const emptyAuthors = authors.filter((a) => !found.some((r) => r.father_name === a));
+    if (emptyAuthors.length) {
+      throw new Error(`HCF source has no rows for allowlisted author(s): ${emptyAuthors.join(', ')}`);
+    }
+
     const byId = new Map(Object.values(HCF_AUTHORS).map((a) => [a.id, []]));
     const seen = new Map();
-    let skippedBooks = 0;
+    const skippedBooks = new Set();
+    const norm = (b) => String(b).toLowerCase().replace(/[^a-z0-9]/g, '');
     const fetchedAt = now();
 
     for (const r of found) {
-      const code = HCF_NAME_TO_CODE[r.book];
-      if (!code) { skippedBooks++; continue; }
+      const code = HCF_NAME_TO_CODE[norm(r.book)];
+      if (!code) { skippedBooks.add(String(r.book)); continue; }
       const text = (r.txt ?? '').trim();
       if (!text) continue;
       const meta = HCF_AUTHORS[r.father_name];
@@ -65,7 +71,10 @@ export async function ingestHcf(db, hcfPath, { now = () => new Date().toISOStrin
       replacePassages(db, meta.id, rows);
       perCommentary[meta.id] = rows.length;
     }
-    return { rows: Object.values(perCommentary).reduce((a, b) => a + b, 0), skippedBooks, perCommentary };
+    return {
+      rows: Object.values(perCommentary).reduce((a, b) => a + b, 0),
+      skippedBooks: [...skippedBooks].sort(), emptyAuthors, perCommentary,
+    };
   } finally {
     src.close();
   }

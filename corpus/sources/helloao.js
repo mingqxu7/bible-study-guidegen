@@ -15,7 +15,7 @@ export function parseChapter(json, { sectionLevel = false } = {}) {
     const text = v.content.filter((p) => typeof p === 'string').join('\n\n').trim();
     if (!text) return;
     const next = verses[i + 1];
-    const end = sectionLevel ? (next ? next.number - 1 : json.numberOfVerses) : v.number;
+    const end = sectionLevel ? (next ? next.number - 1 : Number.isFinite(json.numberOfVerses) ? json.numberOfVerses : v.number) : v.number;
     rows.push({ chapter, verseStart: v.number, verseEnd: Math.max(end, v.number), text });
   });
   return rows;
@@ -34,6 +34,9 @@ export async function ingestHelloao(db, fetcher, opts) {
     helloaoId, cacheDir, books = null, concurrency = 2, baseUrl = DEFAULT_BASE,
     now = () => new Date().toISOString(), log = () => {},
   } = opts;
+  if (!Number.isInteger(concurrency) || concurrency < 1) {
+    throw new Error(`concurrency must be a positive integer, got ${concurrency}`);
+  }
   const meta = HELLOAO_COMMENTARIES[helloaoId];
   if (!meta) throw new Error(`Unknown HelloAO commentary: ${helloaoId}`);
 

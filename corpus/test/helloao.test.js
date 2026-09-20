@@ -135,3 +135,20 @@ test('unknown commentary id is rejected', async () => {
     /Unknown HelloAO commentary/,
   );
 });
+
+test('non-positive-integer concurrency is rejected', async () => {
+  for (const concurrency of [0, NaN, -1, 1.5]) {
+    await assert.rejects(
+      ingestHelloao(openDb(), fakeFetcher({}), { helloaoId: 'john-gill', cacheDir: await tmp(), baseUrl: BASE, concurrency }),
+      /concurrency must be a positive integer/,
+    );
+  }
+});
+
+test('parseChapter: sectionLevel without numberOfVerses falls back to the entry verse', () => {
+  const json = { chapter: { number: 1, content: [verse(1, 'a'), verse(3, 'c')] } };
+  assert.deepEqual(parseChapter(json, { sectionLevel: true }), [
+    { chapter: 1, verseStart: 1, verseEnd: 2, text: 'a' },
+    { chapter: 1, verseStart: 3, verseEnd: 3, text: 'c' },
+  ]);
+});

@@ -46,7 +46,7 @@ test('ingestHcf keeps allowlisted authors and decodes locations', async () => {
     { c: 'wesley', book: 'sng', chapter: 2, vs: 1, ec: 2, ve: 1, seq: 0, text: 'wesley text' },
   ]);
   assert.equal(stats.rows, 4);
-  assert.equal(stats.skippedBooks, 1);
+  assert.deepEqual(stats.skippedBooks, ['tobit']);
   assert.equal(db.prepare('SELECT license FROM sources WHERE commentary_id = ?').get('lapide').license, HCF_LICENSE);
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM passages WHERE license != ?").get(HCF_LICENSE).n, 0);
 });
@@ -75,4 +75,20 @@ test('downloadRelease streams the response body to disk', async () => {
   const fetcher = { fetch: async () => ({ body }) };
   await downloadRelease(fetcher, dest);
   assert.equal(await fs.readFile(dest, 'utf8'), 'hello sqlite');
+});
+
+test('ingestHcf normalizes book spelling before lookup', async () => {
+  const db = openDb();
+  const rows = [...ROWS, ['Martin Luther', '1 Corinthians', 1000001, 1000001, 'cased']];
+  const stats = await ingestHcf(db, await fixture(rows));
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM passages WHERE book = '1co'").get().n, 1);
+  assert.deepEqual(stats.skippedBooks, ['tobit']);
+});
+
+test('ingestHcf throws before writing when an allowlisted author has no rows', async () => {
+  const db = openDb();
+  const file = await fixture(ROWS.filter((r) => r[0] !== 'Martin Luther'));
+  await assert.rejects(ingestHcf(db, file), /Martin Luther/);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM passages').get().n, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM sources').get().n, 0);
 });
