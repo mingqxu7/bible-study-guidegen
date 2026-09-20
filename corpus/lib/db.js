@@ -26,6 +26,24 @@ CREATE TABLE IF NOT EXISTS passages (
   PRIMARY KEY (commentary_id, book, chapter, verse_start, end_chapter, verse_end, seq)
 );
 CREATE INDEX IF NOT EXISTS idx_passages_book_chapter ON passages (book, chapter);
+CREATE TABLE IF NOT EXISTS translations (
+  commentary_id TEXT NOT NULL,
+  book TEXT NOT NULL,
+  chapter INTEGER NOT NULL,
+  verse_start INTEGER NOT NULL,
+  end_chapter INTEGER NOT NULL,
+  verse_end INTEGER NOT NULL,
+  seq INTEGER NOT NULL DEFAULT 0,
+  lang TEXT NOT NULL,
+  model TEXT NOT NULL,
+  prompt_version TEXT NOT NULL,
+  text TEXT NOT NULL,
+  input_tokens INTEGER NOT NULL,
+  output_tokens INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (commentary_id, book, chapter, verse_start, end_chapter, verse_end, seq, lang, model, prompt_version)
+);
+CREATE INDEX IF NOT EXISTS idx_translations_book_chapter ON translations (book, chapter);
 `;
 
 const INSERT_PASSAGE = `
@@ -84,4 +102,30 @@ export function upsertSource(db, s) {
       attribution = excluded.attribution, notes = excluded.notes`)
     .run(s.commentaryId, s.name, s.author ?? null, s.source, s.sourceUrl ?? null,
       s.license, s.attribution ?? null, s.notes ?? null);
+}
+
+export function getTranslation(db, key, { lang, model, promptVersion }) {
+  const row = db.prepare(`
+    SELECT text, input_tokens AS inputTokens, output_tokens AS outputTokens, created_at AS createdAt
+    FROM translations
+    WHERE commentary_id = ? AND book = ? AND chapter = ? AND verse_start = ? AND end_chapter = ?
+      AND verse_end = ? AND seq = ? AND lang = ? AND model = ? AND prompt_version = ?`)
+    .get(key.commentaryId, key.book, key.chapter, key.verseStart, key.endChapter, key.verseEnd,
+      key.seq ?? 0, lang, model, promptVersion);
+  return row ? { ...row } : null;
+}
+
+export function saveTranslation(db, r) {
+  inTransaction(db, () => {
+    db.prepare(`
+      INSERT INTO translations
+        (commentary_id, book, chapter, verse_start, end_chapter, verse_end, seq, lang, model,
+         prompt_version, text, input_tokens, output_tokens, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (commentary_id, book, chapter, verse_start, end_chapter, verse_end, seq, lang, model, prompt_version)
+      DO UPDATE SET text = excluded.text, input_tokens = excluded.input_tokens,
+                    output_tokens = excluded.output_tokens, created_at = excluded.created_at`)
+      .run(r.commentaryId, r.book, r.chapter, r.verseStart, r.endChapter, r.verseEnd, r.seq ?? 0,
+        r.lang, r.model, r.promptVersion, r.text, r.inputTokens, r.outputTokens, r.createdAt);
+  });
 }
