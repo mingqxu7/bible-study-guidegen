@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { getMaxVerse } from '../../backend/services/bibleBounds.js';
 import { USFM_TO_CODE } from '../lib/books.js';
 import { upsertPassages, upsertSource } from '../lib/db.js';
 import { HttpError } from '../lib/fetcher.js';
@@ -7,7 +8,9 @@ import { HELLOAO_COMMENTARIES, PD_MARK_URL } from '../lib/licenses.js';
 
 const DEFAULT_BASE = 'https://bible.helloao.org';
 
-export function parseChapter(json, { sectionLevel = false } = {}) {
+// lastVerse: the chapter's true last verse. HelloAO's `numberOfVerses` is unreliable for
+// section-level commentaries (Henry reports the number of entries), so callers pass it in.
+export function parseChapter(json, { sectionLevel = false, lastVerse } = {}) {
   const chapter = json.chapter.number;
   const verses = json.chapter.content.filter((c) => c.type === 'verse');
   const rows = [];
@@ -15,7 +18,7 @@ export function parseChapter(json, { sectionLevel = false } = {}) {
     const text = v.content.filter((p) => typeof p === 'string').join('\n\n').trim();
     if (!text) return;
     const next = verses[i + 1];
-    const end = sectionLevel ? (next ? next.number - 1 : Number.isFinite(json.numberOfVerses) ? json.numberOfVerses : v.number) : v.number;
+    const end = sectionLevel ? (next ? next.number - 1 : Number.isFinite(lastVerse) ? lastVerse : v.number) : v.number;
     rows.push({ chapter, verseStart: v.number, verseEnd: Math.max(end, v.number), text });
   });
   return rows;
@@ -76,7 +79,10 @@ export async function ingestHelloao(db, fetcher, opts) {
         await fs.mkdir(path.dirname(file), { recursive: true });
         await fs.writeFile(file, JSON.stringify(json));
       }
-      const parsed = parseChapter(json, { sectionLevel: meta.sectionLevel });
+      const parsed = parseChapter(json, {
+        sectionLevel: meta.sectionLevel,
+        lastVerse: getMaxVerse(USFM_TO_CODE[usfm], ch),
+      });
       upsertPassages(db, parsed.map((p) => ({
         commentaryId: meta.id, source: 'helloao', book: USFM_TO_CODE[usfm],
         chapter: p.chapter, verseStart: p.verseStart, endChapter: p.chapter, verseEnd: p.verseEnd,

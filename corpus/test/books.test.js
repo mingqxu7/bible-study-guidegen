@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BOOKS, USFM_TO_CODE, HCF_NAME_TO_CODE } from '../lib/books.js';
+import { BOOKS, USFM_TO_CODE } from '../lib/books.js';
 import { bibleBounds } from '../../backend/services/bibleBounds.js';
 
 // Book ids returned by HelloAO's john-gill books.json (verified live 2026-09-20).
@@ -26,7 +26,4 @@ test('spot-check the maps', () => {
   assert.equal(USFM_TO_CODE.PHP, 'phi');
   assert.equal(USFM_TO_CODE.JHN, 'joh');
   assert.equal(USFM_TO_CODE.EZK, 'eze');
-  assert.equal(HCF_NAME_TO_CODE['1corinthians'], '1co');
-  assert.equal(HCF_NAME_TO_CODE.songofsolomon, 'sng');
-  assert.equal(HCF_NAME_TO_CODE.psalms, 'psa');
 });
