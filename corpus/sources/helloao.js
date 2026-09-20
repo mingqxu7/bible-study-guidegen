@@ -14,12 +14,17 @@ export function parseChapter(json, { sectionLevel = false, lastVerse } = {}) {
   const chapter = json.chapter.number;
   const verses = json.chapter.content.filter((c) => c.type === 'verse');
   const rows = [];
+  const seen = new Map(); // HelloAO can list the same verse twice (e.g. a heading entry, then the commentary)
   verses.forEach((v, i) => {
     const text = v.content.filter((p) => typeof p === 'string').join('\n\n').trim();
     if (!text) return;
     const next = verses[i + 1];
     const end = sectionLevel ? (next ? next.number - 1 : Number.isFinite(lastVerse) ? lastVerse : v.number) : v.number;
-    rows.push({ chapter, verseStart: v.number, verseEnd: Math.max(end, v.number), text });
+    const verseEnd = Math.max(end, v.number);
+    const key = `${v.number}:${verseEnd}`;
+    const seq = seen.get(key) ?? 0;
+    seen.set(key, seq + 1);
+    rows.push({ chapter, verseStart: v.number, verseEnd, seq, text });
   });
   return rows;
 }
@@ -85,7 +90,7 @@ export async function ingestHelloao(db, fetcher, opts) {
       });
       upsertPassages(db, parsed.map((p) => ({
         commentaryId: meta.id, source: 'helloao', book: USFM_TO_CODE[usfm],
-        chapter: p.chapter, verseStart: p.verseStart, endChapter: p.chapter, verseEnd: p.verseEnd,
+        chapter: p.chapter, verseStart: p.verseStart, endChapter: p.chapter, verseEnd: p.verseEnd, seq: p.seq,
         text: p.text, license: licenseUrl, fetchedAt: now(),
       })));
       stats.chapters++;

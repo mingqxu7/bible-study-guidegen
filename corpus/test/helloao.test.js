@@ -13,8 +13,8 @@ const verse = (number, ...content) => ({ type: 'verse', number, content });
 test('parseChapter: verse-level entries keep their own verse number', () => {
   const json = { numberOfVerses: 5, chapter: { number: 1, content: [verse(1, 'a', 'b'), verse(3, 'c')] } };
   assert.deepEqual(parseChapter(json), [
-    { chapter: 1, verseStart: 1, verseEnd: 1, text: 'a\n\nb' },
-    { chapter: 1, verseStart: 3, verseEnd: 3, text: 'c' },
+    { chapter: 1, verseStart: 1, verseEnd: 1, seq: 0, text: 'a\n\nb' },
+    { chapter: 1, verseStart: 3, verseEnd: 3, seq: 0, text: 'c' },
   ]);
 });
 
@@ -22,8 +22,8 @@ test('parseChapter: sectionLevel runs each entry to the next start, last to last
   // numberOfVerses: 2 mimics live Henry data, where it counts entries rather than verses.
   const json = { numberOfVerses: 2, chapter: { number: 1, content: [verse(1, 'a'), verse(3, 'c')] } };
   assert.deepEqual(parseChapter(json, { sectionLevel: true, lastVerse: 5 }), [
-    { chapter: 1, verseStart: 1, verseEnd: 2, text: 'a' },
-    { chapter: 1, verseStart: 3, verseEnd: 5, text: 'c' },
+    { chapter: 1, verseStart: 1, verseEnd: 2, seq: 0, text: 'a' },
+    { chapter: 1, verseStart: 3, verseEnd: 5, seq: 0, text: 'c' },
   ]);
 });
 
@@ -32,7 +32,7 @@ test('parseChapter: drops empty text, non-string parts and non-verse entries', (
     numberOfVerses: 3,
     chapter: { number: 2, content: [{ type: 'heading', content: ['H'] }, verse(1, '   '), verse(2, { x: 1 }), verse(3, 'ok')] },
   };
-  assert.deepEqual(parseChapter(json), [{ chapter: 2, verseStart: 3, verseEnd: 3, text: 'ok' }]);
+  assert.deepEqual(parseChapter(json), [{ chapter: 2, verseStart: 3, verseEnd: 3, seq: 0, text: 'ok' }]);
 });
 
 // ---- ingest ----
@@ -158,10 +158,31 @@ test('ingest: a section-level commentary\'s last section runs to the real chapte
   assert.deepEqual(rows, [{ vs: 1, ve: 18 }, { vs: 19, ve: 32 }]);
 });
 
+test('parseChapter: two entries for the same verse get distinct seq values instead of colliding', () => {
+  // Live HelloAO data does this (e.g. Calvin on Exodus 28: a heading entry, then verse 1 commentary).
+  const json = { chapter: { number: 28, content: [verse(1, 'The Tabernacle;'), verse(1, 'And take thou unto thee Aaron.'), verse(2, 'next')] } };
+  assert.deepEqual(parseChapter(json).map((r) => [r.verseStart, r.verseEnd, r.seq, r.text]), [
+    [1, 1, 0, 'The Tabernacle;'],
+    [1, 1, 1, 'And take thou unto thee Aaron.'],
+    [2, 2, 0, 'next'],
+  ]);
+});
+
+test('ingest keeps both entries when a chapter repeats a verse number', async () => {
+  const db = openDb();
+  const fetcher = fakeFetcher({
+    [`${BASE}/api/c/john-calvin/books.json`]: { commentary: { licenseUrl: PD_MARK_URL }, books: [{ id: 'EXO', numberOfChapters: 1 }] },
+    [`${BASE}/api/c/john-calvin/EXO/1.json`]: chapterJson('EXO', 1, [verse(1, 'heading'), verse(1, 'commentary')]),
+  });
+  await ingestHelloao(db, fetcher, { helloaoId: 'john-calvin', cacheDir: await tmp(), baseUrl: BASE });
+  const rows = db.prepare('SELECT verse_start AS vs, seq, text FROM passages ORDER BY seq').all().map((r) => ({ ...r }));
+  assert.deepEqual(rows, [{ vs: 1, seq: 0, text: 'heading' }, { vs: 1, seq: 1, text: 'commentary' }]);
+});
+
 test('parseChapter: sectionLevel without lastVerse falls back to the entry verse', () => {
   const json = { chapter: { number: 1, content: [verse(1, 'a'), verse(3, 'c')] } };
   assert.deepEqual(parseChapter(json, { sectionLevel: true }), [
-    { chapter: 1, verseStart: 1, verseEnd: 2, text: 'a' },
-    { chapter: 1, verseStart: 3, verseEnd: 3, text: 'c' },
+    { chapter: 1, verseStart: 1, verseEnd: 2, seq: 0, text: 'a' },
+    { chapter: 1, verseStart: 3, verseEnd: 3, seq: 0, text: 'c' },
   ]);
 });
