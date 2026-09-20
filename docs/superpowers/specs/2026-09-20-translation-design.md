@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS translations (
   seq            INTEGER NOT NULL DEFAULT 0,
   lang           TEXT NOT NULL,          -- 'zh-Hans'
   model          TEXT NOT NULL,          -- e.g. 'claude-sonnet-5'
-  prompt_version TEXT NOT NULL,          -- e.g. 'zh-hans-v1'
+  prompt_version TEXT NOT NULL,          -- e.g. 'zh-hans-v2'
   text           TEXT NOT NULL,
   input_tokens   INTEGER NOT NULL,
   output_tokens  INTEGER NOT NULL,
@@ -87,7 +87,7 @@ returns `{ complete({ system, user, maxTokens }) -> { text, inputTokens, outputT
 
 ## Translator (`corpus/lib/translate.js`)
 
-**Prompt** (`PROMPT_VERSION = 'zh-hans-v1'`, a constant in the module): a system prompt telling the
+**Prompt** (`PROMPT_VERSION = 'zh-hans-v2'`, a constant in the module; v2 added the 和合本 pronoun rule: 他 for God, Christ, the Spirit and the devil, never 祂, and 它 only for animals and things): a system prompt telling the
 model to translate historic English Bible-commentary text into Simplified Chinese in a formal,
 reverent register and to output only the translation. Rules (from the sample study):
 use 和合本上帝版 terms (上帝, 耶和华, 耶稣基督, 圣灵, 称义, 救赎 ...); standard Chinese book

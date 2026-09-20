@@ -6,7 +6,7 @@ import {
 } from '../lib/translate.js';
 
 test('constants', () => {
-  assert.equal(PROMPT_VERSION, 'zh-hans-v1');
+  assert.equal(PROMPT_VERSION, 'zh-hans-v2');
   assert.equal(LANG, 'zh-Hans');
   assert.equal(DEFAULT_MODEL, 'claude-sonnet-5');
 });
@@ -18,6 +18,13 @@ test('the system prompt fixes the 上帝 convention and the key rules', () => {
   assert.match(SYSTEM_PROMPT, /ONLY the Chinese translation/);
   assert.match(SYSTEM_PROMPT, /&c\./);
   assert.match(SYSTEM_PROMPT, /Never summarize/);
+});
+
+test('the system prompt fixes the 和合本 pronoun convention (他 for God, Christ, the Spirit and the devil; never 祂)', () => {
+  assert.match(SYSTEM_PROMPT, /Pronouns/);
+  assert.match(SYSTEM_PROMPT, /他 for God, Jesus Christ, the Holy Spirit and the devil/);
+  assert.match(SYSTEM_PROMPT, /never 祂/);
+  assert.match(SYSTEM_PROMPT, /它 only for animals and things/);
 });
 
 test('buildUserMessage names the commentary and passage; parts only when chunked', () => {

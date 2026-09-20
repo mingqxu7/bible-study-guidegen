@@ -2,7 +2,7 @@ import { AuthError } from './anthropic.js';
 import { getTranslation, saveTranslation } from './db.js';
 import { BOOKS } from './books.js';
 
-export const PROMPT_VERSION = 'zh-hans-v1';
+export const PROMPT_VERSION = 'zh-hans-v2';
 export const LANG = 'zh-Hans';
 export const DEFAULT_MODEL = 'claude-sonnet-5';
 
@@ -13,6 +13,7 @@ Output ONLY the Chinese translation of the text you are given: no preface, no no
 Rules:
 1. Register: formal, reverent, natural theological Chinese, as in a printed Chinese commentary. Keep the historic author's voice.
 2. Use the Chinese Union Version (和合本) 上帝版 terminology: 上帝 for "God" (not 神), 耶和华 for the LORD/Jehovah, 耶稣基督, 圣灵, 以色列, 大卫, 摩西, 称义, 圣化, 救赎. Render Scripture quotations in 和合本-style wording.
+   Pronouns (和合本 convention): use 他 for God, Jesus Christ, the Holy Spirit and the devil, never 祂; use 它 only for animals and things.
 3. Bible book names: standard Chinese names (Romans -> 罗马书, Genesis -> 创世记). Keep chapter:verse numerals unchanged (罗马书 8:28).
 4. Keep Hebrew, Greek and Latin words exactly as written. Add a short Chinese gloss in parentheses only where the author himself explains the word.
 5. Render archaic abbreviations such as "&c." as 等等 and "i.e." as 即.
