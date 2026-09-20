@@ -18,9 +18,10 @@ test('parseChapter: verse-level entries keep their own verse number', () => {
   ]);
 });
 
-test('parseChapter: sectionLevel runs each entry to the next start, last to chapter end', () => {
-  const json = { numberOfVerses: 5, chapter: { number: 1, content: [verse(1, 'a'), verse(3, 'c')] } };
-  assert.deepEqual(parseChapter(json, { sectionLevel: true }), [
+test('parseChapter: sectionLevel runs each entry to the next start, last to lastVerse (numberOfVerses is ignored)', () => {
+  // numberOfVerses: 2 mimics live Henry data, where it counts entries rather than verses.
+  const json = { numberOfVerses: 2, chapter: { number: 1, content: [verse(1, 'a'), verse(3, 'c')] } };
+  assert.deepEqual(parseChapter(json, { sectionLevel: true, lastVerse: 5 }), [
     { chapter: 1, verseStart: 1, verseEnd: 2, text: 'a' },
     { chapter: 1, verseStart: 3, verseEnd: 5, text: 'c' },
   ]);
@@ -145,7 +146,19 @@ test('non-positive-integer concurrency is rejected', async () => {
   }
 });
 
-test('parseChapter: sectionLevel without numberOfVerses falls back to the entry verse', () => {
+test('ingest: a section-level commentary\'s last section runs to the real chapter end', async () => {
+  const db = openDb();
+  const fetcher = fakeFetcher({
+    [`${BASE}/api/c/matthew-henry/books.json`]: { commentary: { licenseUrl: PD_MARK_URL }, books: [{ id: 'ROM', numberOfChapters: 1 }] },
+    // numberOfVerses: 2 (entry count), as the live API reports for Henry; Romans 1 really has 32 verses.
+    [`${BASE}/api/c/matthew-henry/ROM/1.json`]: { ...chapterJson('ROM', 1, [verse(1, 'first'), verse(19, 'last')]), numberOfVerses: 2 },
+  });
+  await ingestHelloao(db, fetcher, { helloaoId: 'matthew-henry', cacheDir: await tmp(), baseUrl: BASE });
+  const rows = db.prepare('SELECT verse_start AS vs, verse_end AS ve FROM passages ORDER BY verse_start').all().map((r) => ({ ...r }));
+  assert.deepEqual(rows, [{ vs: 1, ve: 18 }, { vs: 19, ve: 32 }]);
+});
+
+test('parseChapter: sectionLevel without lastVerse falls back to the entry verse', () => {
   const json = { chapter: { number: 1, content: [verse(1, 'a'), verse(3, 'c')] } };
   assert.deepEqual(parseChapter(json, { sectionLevel: true }), [
     { chapter: 1, verseStart: 1, verseEnd: 2, text: 'a' },
