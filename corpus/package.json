@@ -7,6 +7,8 @@
   "scripts": {
     "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.js\"",
     "ingest": "node --disable-warning=ExperimentalWarning cli.js ingest",
-    "report": "node --disable-warning=ExperimentalWarning cli.js report"
+    "report": "node --disable-warning=ExperimentalWarning cli.js report",
+    "translate": "node --disable-warning=ExperimentalWarning cli.js translate",
+    "show": "node --disable-warning=ExperimentalWarning cli.js show"
   }
 }

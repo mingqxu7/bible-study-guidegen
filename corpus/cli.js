@@ -8,6 +8,9 @@ import { HELLOAO_COMMENTARIES, SWORD_MODULES } from './lib/licenses.js';
 import { formatReport } from './lib/report.js';
 import { ingestHelloao } from './sources/helloao.js';
 import { ingestSword } from './sources/sword.js';
+import { AuthError, createClient } from './lib/anthropic.js';
+import { UsageError, runShow, runTranslate, runTranslationsReport } from './lib/commands.js';
+import { DEFAULT_MODEL } from './lib/translate.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const { values, positionals } = parseArgs({
@@ -17,6 +20,10 @@ const { values, positionals } = parseArgs({
     commentary: { type: 'string' },
     book: { type: 'string', multiple: true },
     concurrency: { type: 'string', default: '2' },
+    model: { type: 'string' },
+    force: { type: 'boolean', default: false },
+    'dry-run': { type: 'boolean', default: false },
+    'max-chars': { type: 'string', default: '30000' },
   },
 });
 const [command, source] = positionals;
@@ -36,6 +43,34 @@ function makeFetcher(minIntervalMs, hostIntervals = {}) {
 async function main() {
   if (command === 'report') {
     console.log(formatReport(openDb(values.db)));
+    return;
+  }
+  if (command === 'translate') {
+    const [, commentary, book, ref] = positionals;
+    const model = values.model ?? DEFAULT_MODEL;
+    const dryRun = values['dry-run'];
+    let client = null;
+    if (!dryRun) {
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        console.error('Set ANTHROPIC_API_KEY in your environment to translate (use --dry-run to preview without a key).');
+        process.exit(2);
+      }
+      client = createClient({ apiKey, model });
+    }
+    process.exitCode = await runTranslate({
+      db: openDb(values.db), client, model, commentary, book, ref,
+      force: values.force, dryRun, maxChars: Number(values['max-chars']),
+    });
+    return;
+  }
+  if (command === 'show') {
+    const [, commentary, book, ref] = positionals;
+    runShow({ db: openDb(values.db), model: values.model ?? DEFAULT_MODEL, commentary, book, ref });
+    return;
+  }
+  if (command === 'translations' && source === 'report') {
+    runTranslationsReport({ db: openDb(values.db) });
     return;
   }
   if (command === 'ingest' && source === 'helloao') {
@@ -64,11 +99,12 @@ async function main() {
     }
     return;
   }
-  console.error('Usage: cli.js ingest helloao [--commentary <helloao-id>] [--book ROM ...] | ingest sword [--commentary Wesley|Barnes|Luther] | report  [--db path]');
+  console.error('Usage: cli.js ingest helloao [--commentary <helloao-id>] [--book ROM ...] | ingest sword [--commentary Wesley|Barnes|Luther] | report | translate <commentary> <book> <chapter>[:<verse>] [--model id] [--force] [--dry-run] [--max-chars n] | show <commentary> <book> <chapter>[:<verse>] [--model id] | translations report  [--db path]');
   process.exit(1);
 }
 
 main().catch((err) => {
-  console.error(err instanceof BlockedError ? err.message : err);
-  process.exit(err instanceof BlockedError ? 3 : 1);
+  const quiet = err instanceof BlockedError || err instanceof AuthError || err instanceof UsageError;
+  console.error(quiet ? err.message : err);
+  process.exit(err instanceof BlockedError || err instanceof AuthError ? 3 : 1);
 });
