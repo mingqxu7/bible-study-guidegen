@@ -9,7 +9,7 @@ import { formatReport } from './lib/report.js';
 import { ingestHelloao } from './sources/helloao.js';
 import { ingestSword } from './sources/sword.js';
 import { AuthError, createClient } from './lib/anthropic.js';
-import { UsageError, runShow, runTranslate, runTranslationsReport } from './lib/commands.js';
+import { UsageError, runAccess, runShow, runTranslate, runTranslationsReport } from './lib/commands.js';
 import { DEFAULT_MODEL } from './lib/translate.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -75,6 +75,12 @@ async function main() {
     runShow({ db: openDb(values.db), model: values.model ?? DEFAULT_MODEL, commentary, book, ref });
     return;
   }
+  if (command === 'access') {
+    const [, commentary, access] = positionals;
+    if (!commentary || !access) throw new UsageError('Usage: access <commentary> <open|restricted>');
+    runAccess({ db: openDb(values.db), commentary, access });
+    return;
+  }
   if (command === 'translations' && source === 'report') {
     runTranslationsReport({ db: openDb(values.db) });
     return;
@@ -105,7 +111,7 @@ async function main() {
     }
     return;
   }
-  console.error('Usage: cli.js ingest helloao [--commentary <helloao-id>] [--book ROM ...] | ingest sword [--commentary Wesley|Barnes|Luther] | report | translate <commentary> <book> <chapter>[:<verse>] [--model id] [--force] [--dry-run] [--max-chars n] | show <commentary> <book> <chapter>[:<verse>] [--model id] | translations report  [--db path]');
+  console.error('Usage: cli.js ingest helloao [--commentary <helloao-id>] [--book ROM ...] | ingest sword [--commentary Wesley|Barnes|Luther] | report | translate <commentary> <book> <chapter>[:<verse>] [--model id] [--force] [--dry-run] [--max-chars n] | show <commentary> <book> <chapter>[:<verse>] [--model id] | translations report | access <commentary> <open|restricted>  [--db path]');
   process.exit(1);
 }
 

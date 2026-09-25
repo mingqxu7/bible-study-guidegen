@@ -44,6 +44,21 @@ Not included yet: Lapide, Benson, Whedon, Bengel, Kretzmann, Haydock, Darby's Sy
 MHC and JFB use the `zCom4` driver, which this reader refuses, so they would need a zCom4 reader). The copyrighted commentaries (Scofield, Ironside, McGee,
 Constable, Orchard) are out of scope.
 
+### Access flags
+
+Each row of `sources` carries an `access` flag, `open` (the default) or `restricted`:
+
+    node cli.js access henry restricted     # mark the full Matthew Henry
+    node cli.js access henry open           # and back
+    npm run report                          # restricted sources are marked in the source list
+
+**This is metadata, not enforcement.** Anyone holding `corpus.sqlite` can read every row with
+`sqlite3`, whatever the flag says. It records the intent for whatever serves the corpus later --
+the plan is a single shared secret in the serving layer, which does not exist yet. Re-running an
+ingest never changes an existing flag, so `ingest sword` will not silently reopen a restricted
+commentary. Note that every commentary here is public domain; a flag is a product decision, not a
+licensing one.
+
 SWORD notes: modules are read with a built-in reader (no SWORD library). Book and chapter intro
 headings are not ingested; Barnes' preface/introduction sit in the Matt 1:1/1:2 verse slots and
 are stored as ordinary verse rows. Barnes "no specific text" placeholders are dropped.

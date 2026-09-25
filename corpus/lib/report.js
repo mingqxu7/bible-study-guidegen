@@ -32,8 +32,9 @@ export function formatReport(db) {
     if (c.partialBooks.length) lines.push(`  partial: ${c.partialBooks.map((p) => `${p.book} ${p.have}/${p.total}`).join(', ')}`);
   }
   lines.push('', 'Sources and licenses');
-  for (const s of db.prepare('SELECT commentary_id, source, license FROM sources ORDER BY commentary_id').all()) {
-    lines.push(`${s.commentary_id}  [${s.source}]  ${s.license}`);
+  for (const s of db.prepare('SELECT commentary_id, source, license, access FROM sources ORDER BY commentary_id').all()) {
+    const flag = s.access && s.access !== 'open' ? `  access: ${s.access}` : '';
+    lines.push(`${s.commentary_id}  [${s.source}]  ${s.license}${flag}`);
   }
   return lines.join('\n');
 }

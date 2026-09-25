@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS sources (
   source_url TEXT,
   license TEXT NOT NULL,
   attribution TEXT,
-  notes TEXT
+  notes TEXT,
+  access TEXT NOT NULL DEFAULT 'open'
 );
 CREATE TABLE IF NOT EXISTS passages (
   commentary_id TEXT NOT NULL,
@@ -57,6 +58,10 @@ DO UPDATE SET text = excluded.text, source = excluded.source,
 export function openDb(path = ':memory:') {
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
+  // CREATE TABLE IF NOT EXISTS cannot add a column to a table that already exists, so a database
+  // written before `access` existed needs it added here. Existing rows default to 'open'.
+  const hasAccess = db.prepare('PRAGMA table_info(sources)').all().some((c) => c.name === 'access');
+  if (!hasAccess) db.exec("ALTER TABLE sources ADD COLUMN access TEXT NOT NULL DEFAULT 'open'");
   return db;
 }
 
@@ -92,16 +97,36 @@ export function replacePassages(db, commentaryId, rows) {
   });
 }
 
+export const ACCESS_LEVELS = ['open', 'restricted'];
+
 export function upsertSource(db, s) {
+  // `access` is deliberately NOT taken from `excluded`: a re-ingest passes none, and must leave a
+  // restricted commentary restricted rather than silently reopening it.
   db.prepare(`
-    INSERT INTO sources (commentary_id, name, author, source, source_url, license, attribution, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO sources (commentary_id, name, author, source, source_url, license, attribution, notes, access)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, 'open'))
     ON CONFLICT (commentary_id) DO UPDATE SET
       name = excluded.name, author = excluded.author, source = excluded.source,
       source_url = excluded.source_url, license = excluded.license,
-      attribution = excluded.attribution, notes = excluded.notes`)
+      attribution = excluded.attribution, notes = excluded.notes,
+      access = COALESCE(?, sources.access)`)
     .run(s.commentaryId, s.name, s.author ?? null, s.source, s.sourceUrl ?? null,
-      s.license, s.attribution ?? null, s.notes ?? null);
+      s.license, s.attribution ?? null, s.notes ?? null, s.access ?? null, s.access ?? null);
+}
+
+export function getAccess(db, commentaryId) {
+  const row = db.prepare('SELECT access FROM sources WHERE commentary_id = ?').get(commentaryId);
+  return row ? row.access : null;
+}
+
+// Access is metadata, not enforcement: anyone holding the sqlite file can read every row. It
+// records the intent for whatever serves the corpus later.
+export function setAccess(db, commentaryId, access) {
+  if (!ACCESS_LEVELS.includes(access)) {
+    throw new Error(`access must be one of: ${ACCESS_LEVELS.join(', ')}`);
+  }
+  const { changes } = db.prepare('UPDATE sources SET access = ? WHERE commentary_id = ?').run(access, commentaryId);
+  if (!changes) throw new Error(`Unknown commentary "${commentaryId}"`);
 }
 
 export function getTranslation(db, key, { lang, model, promptVersion }) {

@@ -1,5 +1,5 @@
 import { BOOKS } from './books.js';
-import { getTranslation } from './db.js';
+import { getTranslation, setAccess } from './db.js';
 import { LANG, PROMPT_VERSION, chunkText, formatRef, selectPassages, translatePassage } from './translate.js';
 
 export class UsageError extends Error {
@@ -113,4 +113,13 @@ export function runTranslationsReport({ db, log = console.log }) {
     const total = db.prepare('SELECT COUNT(*) AS n FROM passages WHERE commentary_id = ?').get(r.c).n;
     log(`${r.c}  ${r.model}  ${r.pv}  ${r.n} of ${total} passages  in ${r.tin} / out ${r.tout} tokens`);
   }
+}
+
+export function runAccess({ db, commentary, access, log = console.log }) {
+  try {
+    setAccess(db, commentary, access);
+  } catch (err) {
+    throw new UsageError(err.message);
+  }
+  log(`${commentary}: access set to ${access}`);
 }
