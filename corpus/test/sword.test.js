@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { openDb } from '../lib/db.js';
+import { openDb, upsertPassages } from '../lib/db.js';
 import { slotCount, verseSlot as s } from '../lib/kjv.js';
 import { ingestSword } from '../sources/sword.js';
 import { buildModuleZip, buildTestament } from './helpers/sword-fixtures.js';
@@ -149,4 +149,25 @@ test('a verse index of the wrong size is rejected', async () => {
     ingestSword(openDb(), fakeFetcher(zip), { moduleId: 'Wesley', cacheDir: await tmp() }),
     /verse index has .* records, expected 24115/,
   );
+});
+
+test('MHCC: the Concise ingests under its own id and leaves the full Henry rows alone', async () => {
+  const db = openDb();
+  // The section-level Matthew Henry from HelloAO already lives under `henry`; the Concise is a
+  // different work and must not be replaced by it (replacePassages deletes by commentary_id).
+  upsertPassages(db, [{
+    commentaryId: 'henry', source: 'helloao', book: 'gen', chapter: 1, verseStart: 1, endChapter: 1,
+    verseEnd: 1, seq: 0, text: 'full Henry', license: 'PD', fetchedAt: 'T',
+  }]);
+  const zip = buildModuleZip({
+    id: 'MHCC', conf: { SourceType: 'OSIS' },
+    ot: [{ slots: [s('gen', 1, 1)], text: '<title>Gen 1</title>concise note' }],
+  });
+  const stats = await ingestSword(db, fakeFetcher(zip), { moduleId: 'MHCC', cacheDir: await tmp() });
+  assert.deepEqual(stats, { testaments: ['ot'], books: 1, rows: 1 });
+  assert.deepEqual(
+    rows(db).map((r) => [r.c, r.text]).sort(),
+    [['henry', 'full Henry'], ['henry-concise', 'Gen 1\nconcise note']],
+  );
+  assert.equal(db.prepare('SELECT author FROM sources WHERE commentary_id = ?').get('henry-concise').author, 'Matthew Henry');
 });

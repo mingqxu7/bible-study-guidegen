@@ -12,7 +12,7 @@ cd corpus
 export CORPUS_CONTACT=you@example.com        # optional; added to the User-Agent so servers can reach you
 npm run ingest -- helloao                    # Calvin, Henry, Gill, JFB, Clarke
 npm run ingest -- helloao --commentary john-gill --book ROM   # one book
-npm run ingest -- sword                      # Wesley, Barnes (NT), Luther (selected passages); ~11 MB, one ZIP per 30 s
+npm run ingest -- sword                      # Wesley, Barnes (NT), Luther (selected passages), Henry's Concise; ~13 MB, one ZIP per 30 s
 npm run report                               # coverage gaps + licenses
 npm test
 ```

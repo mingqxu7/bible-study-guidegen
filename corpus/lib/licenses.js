@@ -15,4 +15,7 @@ export const SWORD_MODULES = {
   Wesley: { id: 'wesley', name: "Wesley's Notes on the Bible", author: 'John Wesley', notes: null },
   Barnes: { id: 'barnes', name: "Barnes' Notes on the Bible", author: 'Albert Barnes', notes: 'New Testament only' },
   Luther: { id: 'luther', name: "Luther's Commentary (selected passages)", author: 'Martin Luther', notes: 'selected passages only' },
+  // The Concise is a 19th-century abridgement of Henry's Exposition: a different work from the
+  // section-level `henry` ingested from HelloAO, so it gets its own commentary_id.
+  MHCC: { id: 'henry-concise', name: "Matthew Henry's Concise Commentary", author: 'Matthew Henry', notes: 'abridgement of the Exposition' },
 };
